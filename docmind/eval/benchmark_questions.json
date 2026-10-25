@@ -1,0 +1,62 @@
+[
+  {
+    "question": "第四阶段 RAG 的核心流程是什么？",
+    "ground_truth": "上传文档、解析、分块、嵌入、向量库检索、大模型生成答案。",
+    "expected_key": "向量库检索"
+  },
+  {
+    "question": "RAG 主要解决哪两个问题？",
+    "ground_truth": "解决幻觉与知识时效性问题。",
+    "expected_key": "幻觉"
+  },
+  {
+    "question": "RecursiveCharacterTextSplitter 的两个关键参数是什么？",
+    "ground_truth": "chunk_size 和 chunk_overlap。",
+    "expected_key": "chunk_overlap"
+  },
+  {
+    "question": "DocMind 采用什么向量存储方案？",
+    "ground_truth": "PostgreSQL + pgvector。",
+    "expected_key": "pgvector"
+  },
+  {
+    "question": "pgvector 支持哪些向量索引类型？",
+    "ground_truth": "HNSW 和 IVFFlat。",
+    "expected_key": "HNSW"
+  },
+  {
+    "question": "Ragas 评估的核心方法是什么？",
+    "ground_truth": "LLM-as-a-Judge。",
+    "expected_key": "LLM-as-a-Judge"
+  },
+  {
+    "question": "它支持哪些索引类型？",
+    "history": [
+      {
+        "role": "user",
+        "content": "DocMind 使用什么向量数据库？"
+      },
+      {
+        "role": "assistant",
+        "content": "DocMind 使用 PostgreSQL + pgvector 作为向量存储。"
+      }
+    ],
+    "ground_truth": "HNSW 和 IVFFlat。",
+    "expected_key": "HNSW"
+  },
+  {
+    "question": "它的核心评估方法是什么？",
+    "history": [
+      {
+        "role": "user",
+        "content": "Ragas 评估体系包含哪些指标？"
+      },
+      {
+        "role": "assistant",
+        "content": "包含 Faithfulness 等四个核心指标。"
+      }
+    ],
+    "ground_truth": "LLM-as-a-Judge。",
+    "expected_key": "LLM-as-a-Judge"
+  }
+]

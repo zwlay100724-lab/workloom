@@ -1,0 +1,22 @@
+[
+  {
+    "question": "正式员工每年有多少天带薪年假？",
+    "ground_truth": "正式员工每年享有 10 天带薪年假，入职满一年后开始享受。",
+    "expected_source": "sample_corpus.txt"
+  },
+  {
+    "question": "病假每年最多多少天？需要提供什么证明？",
+    "ground_truth": "病假每年最多 15 天，需要提供医院诊断证明。",
+    "expected_source": "sample_corpus.txt"
+  },
+  {
+    "question": "工作日加班工资怎么计算？",
+    "ground_truth": "工作日加班按 1.5 倍工资计算。",
+    "expected_source": "sample_corpus.txt"
+  },
+  {
+    "question": "出差报销需要准备哪些材料？",
+    "ground_truth": "报销时需要附上发票和行程单。",
+    "expected_source": "sample_corpus.txt"
+  }
+]

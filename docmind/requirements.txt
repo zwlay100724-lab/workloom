@@ -1,0 +1,47 @@
+# DocMind 依赖清单（运行时）
+#
+# 安装（在 docmind/ 目录下）：
+#     pip install -r requirements.txt
+#
+# 约定：
+# - `-e ../shared` 安装本仓库共享包；docmind 的 app.* 直接 import shared.*，
+#   缺了它服务起不来。打镜像时构建上下文必须包含 shared。
+# - 版本号取当前 .venv（Python 3.10）实测可用的组合，用 == 锁死保证可复现。
+#   升级时整体改版本，并回归 tests + eval 后再提交。
+# - 只列代码实际依赖的包。评测依赖单独放在 requirements-eval.txt，
+#   避免把 ragas 的 LangChain 兼容问题带进运行时环境。
+
+# ── 本地共享包 ─────────────────────────────
+-e ../shared
+
+# ── Web / API ──────────────────────────────
+fastapi==0.141.1
+uvicorn[standard]==0.52.1
+python-multipart==0.0.32   # UploadFile 上传必需
+
+# ── 配置 / 环境 ────────────────────────────
+pydantic==2.13.4
+pydantic-settings==2.15.0  # Settings 读 .env
+python-dotenv==1.2.2       # main.py 顶部 load_dotenv()
+
+# ── 数据库 ─────────────────────────────────
+SQLAlchemy==2.0.52
+sqlmodel==0.0.39
+psycopg[binary]==3.3.4     # DATABASE_URL 是 postgresql+psycopg://
+alembic==1.19.1
+pgvector==0.5.0            # document_chunks.embedding 的 Vector 类型
+
+# ── RAG：加载 / 切分 / 检索 / Agent ────────
+langchain-core==1.6.0
+langchain-community==0.4.2 # PyPDFLoader / Docx2txtLoader / DashScopeEmbeddings
+langchain-text-splitters==1.1.2
+langchain-openai==1.1.9
+langgraph==1.2.11          # ReAct 图（app/graph）
+openai==1.109.1            # 被 langchain-openai 1.x 约束在 <3.0
+dashscope==1.27.3          # DashScopeEmbeddings 的底层 SDK
+pypdf==6.16.2              # PyPDFLoader 底层 PDF 解析
+docx2txt==0.9              # Docx2txtLoader 底层解析
+
+# ── 测试 / CI ──────────────────────────────
+pytest==9.1.1
+httpx==0.28.1              # fastapi.testclient 依赖

@@ -1,0 +1,40 @@
+# TaskFlow 依赖清单（运行时 + 测试）
+#
+# 安装（在 taskflow/ 目录下）：
+#     pip install -r requirements.txt
+#
+# 约定：
+# - `-e ../shared` 安装本仓库共享包；taskflow 的 app.* 依赖 shared.*。
+# - 版本号取当前 .venv（Python 3.10）实测可用的组合，用 == 锁死。
+# - 不要用 `pip freeze` 直接生成：那会把无关包、未使用依赖和
+#   环境里其它项目的包一起带进来，反而不可复现。
+
+# ── 本地共享包 ─────────────────────────────
+-e ../shared
+
+# ── Web / API ──────────────────────────────
+fastapi==0.141.1
+uvicorn[standard]==0.52.1
+
+# ── 配置 / 环境 ────────────────────────────
+pydantic==2.13.4
+pydantic-settings==2.15.0  # Settings 读 .env
+python-dotenv==1.2.2       # main.py 顶部 load_dotenv()
+
+# ── 数据库 / 缓存 ──────────────────────────
+SQLAlchemy==2.0.52
+sqlmodel==0.0.39
+psycopg[binary]==3.3.4     # DATABASE_URL 是 postgresql+psycopg://
+redis==8.1.0               # 任务列表缓存 / 空值缓存
+alembic==1.19.1
+
+# ── LLM / LangChain ────────────────────────
+# 只列代码实际 import 的包：langchain_core、langchain_openai。
+# 不装 langchain 元包，避免把未使用的集成一起拉进来。
+langchain-core==1.6.0
+langchain-openai==1.1.9
+openai==1.109.1            # 被 langchain-openai 1.x 约束在 <3.0
+
+# ── 测试 / CI ──────────────────────────────
+pytest==9.1.1
+httpx==0.28.1              # fastapi.testclient 依赖

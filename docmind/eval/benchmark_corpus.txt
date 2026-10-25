@@ -1,0 +1,823 @@
+第 1 页
+3. 重要知识点要进⾏解释
+4. 循序渐进，重点是让我学会这部分的内容
+[Image: Doubao image 1]
+[Image: Doubao image 2]
+我识别到⽤户已完成实战路线第三阶段的 LangChain 学习，当前需推进⾄第四阶段 RAG 。结合⽤户要求分
+板块、含实战、解释知识点且循序渐进的需求，我计划先梳理 RAG 核⼼知识框架，再结合实战路线和学习
+知识点制定分板块教学计划，确保⽤户能扎实掌握 RAG 相关内容。我将依据实战路线和学习知识点两份
+PDF ⽂件，先读取⽂件内容，以此明确第四阶段的具体学习范畴与相关知识点，为后续制定分板块教学计
+划奠定基础。
+我先读取两个 PDF ⽂件，了解第四阶段 RAG 的实战路线要求和涉及的知识点。
+我已完成两个 PDF ⽂件的阅读，接下来会对实战路线中第四阶段 RAG 的相关内容进⾏系统整理，为后续制
+定教学计划奠定基础，整理过程会结合实战路线框架和学习知识点⽂档，明确该阶段的核⼼学习⽅向。我
+从实战路线 PDF 中提取到第四阶段为 RAG 核⼼能⼒学习，周期 2-3 周，对应第⼆个项⽬ DocMind 企业知识
+库。梳理出该阶段核⼼流程为上传⽂档、解析、分块、嵌⼊、向量库检索、⼤模型⽣成答案，并明确第⼀
+版技术⽅案仅包含基础 RAG 组件，暂不涉及 GraphRAG 等⾼级技术。我梳理出 RAG 技术⽅案的迭代思路，
+第⼆版新增 metadata filter 、⽂档引⽤等功能，第三版聚焦 Chunk size 等参数优化及 questions.json 评
+估。同时，我会引⼊ Ragas 评估体系，涵盖 Faithfulness 等四个核⼼指标，以此完善第四阶段教学计划的
+实战与评估环节。我从学习知识点 PDF 中提取 RAG 相关核⼼知识点，梳理出三⼤模块：⼀是 RAG 核⼼原
+理，涵盖解决幻觉与知识时效性的需求及索引 → 检索 → ⽣成的⼯作流程；⼆是⽂档加载与处理，包含多格
+式⽂档加载、⽂本分割策略及 Chunk 参数设置；三是向量化与 Embedding ，涉及模型选择、向量化原理
+及语义相似度计算，为后续教学计划的知识点讲解环节提供核⼼内容⽀撑。我提取出第四阶段需补充的
+RAG 进阶技术要点，涵盖向量数据库、检索策略优化、 RAG 链构建及 Ragas 评估体系四⼤模块。其中向量
+数据库涉及选型、索引与检索操作，检索策略包含多种优化⽅式， RAG 链构建对应不同应⽤场景， Ragas
+评估则以 LLM-as-a-Judge 为核⼼，为教学计划的知识点讲解和实战环节提供具体内容⽀撑。我结合⽤户
+已掌握的 LangChain 知识和实战背景，补充第四阶段 RAG 进阶技术要点。⾸先梳理 Query 改写、⽂档摘要
+索引等优化策略，接着讲解 Agentic RAG 的主动决策逻辑，最后介绍 GraphRAG 的知识图谱增强⽅案，同
+时明确需贴合实战路线要求，采⽤ PostgreSQL + pgvector 作为向量存储⽅案，为教学计划的进阶模块填
+充具体内容。结合⽤户管理科学与⼯程专业背景及对详细、循序渐进、实战结合的需求，我规划第四阶段
+教学计划。参考第三阶段九个板块模式，计划分板块设计，考虑⽤户有 TaskFlow 基础，可复⽤基础设施
+新建 DocMind 项⽬。整体按最简 RAG 、企业级功能、优化与评估三版推进，每板块配套概念解释与实战
+环节，确保学习循序渐进且能掌握核⼼内容。我将第四阶段教学计划拆解为两⼤核⼼板块，板块⼀聚焦
+RAG 基础原理与环境搭建，涵盖 RAG 的核⼼价值、⼯作流程、 DocMind 项⽬结构、 pgvector 环境配置及
+Document 对象概念；板块⼆侧重⽂档加载与解析，重点讲解 LangChain Document 对象及 PDF 加载⼯具
+的使⽤，为后续实战环节奠定基础。我将完善第四阶段教学计划的后续板块，先规划⽂档处理扩展内容，
+2026/8/29 20:20 202608292019-doubao-Langchain 实战教学（第六、七板块） -8msg
+blob:chrome-extension://jkpfpfgaadbpkmcnejpdjickakjnjﬂl/e464d99d-58a2-4723-b14d-c83c164e6813 55/76
+
+第 2 页
+包括 Word/Markdown 格式的加载⽅法及⽂档元数据的提取与应⽤。接着细化板块三，围绕⽂本分割展
+开，讲解分块的必要性、 RecursiveCharacterTextSplitter 的使⽤、 chunk_size 和 chunk_overlap 参数设
+置，以及分割策略对效果的影响。同时梳理板块四的核⼼内容，涵盖 Embedding 原理、模型选择依据，
+为教学计划填充具体知识点与实战讲解要点。我会规划第四阶段的第五、六教学板块，板块五聚焦向量存
+储与 pgvector 集成，讲解向量数据库原理、 pgvector 使⽤、向量表设计、余弦相似度计算及
+HNSW/IVFFlat 索引类型；板块六围绕检索器与 Top-K 检索展开，涵盖 Retriever 抽象、相似度检索、 Top-
+K 参数、 metadata filter 及检索结果格式，同时结合 LangChain Embeddings 接⼝和⽂本向量化核⼼逻
+辑，为实战环节提供完整知识点⽀撑。我规划了第四阶段的第七、⼋教学板块，板块七聚焦 RAG 链构建第
+⼀版，讲解 RetrievalQA 链搭建、 RAG 专⽤ Prompt 设计及上下⽂注⼊⽅法，配套上传 PDF 与问答的完整
+API 实战；板块⼋对应企业级增强第⼆版，涵盖⽂档引⽤标注、⻚⾯引⽤、知识库隔离、对话式 RAG 及多
+格式⽀持，为实战环节补充企业级功能实现要点。我梳理出第四阶段需新增的 RAG 进阶技术板块，涵盖
+Rerank 重排序、 Query 改写、 Chunk 策略实验及 Ragas 评估体系四⼤核⼼内容。其中 Ragas 评估体系包含
+评估必要性、 LLM-as-a-Judge 原理、四⼤核⼼指标、测试集构建及参数对⽐实验，我将结合这些内容规
+划第⼗个教学板块，同时计划按 10 个板块的结构细化各板块的概念解释、实战环节与对应⽂件，确保教学
+计划循序渐进且贴合实战需求。结合⽤户 TaskFlow 项⽬的 FastAPI+PostgreSQL+Redis+JWT 完整基础设
+施，我建议 DocMind 项⽬复⽤该架构，可选择新建 docmind ⽬录复⽤核⼼模块，或直接在 TaskFlow 中新
+增 RAG 模块，既贴合实战路线的第⼆个项⽬要求，⼜能提升学习效率。我分析后认为新建 DocMind 项⽬
+更合理，同时复⽤ TaskFlow 的架构模式与掌握的技术栈，这样既能让⽤户练习新项⽬搭建，⼜⽆需重新
+学习基础设施，为后续详细教学计划的制定奠定基础。
+我已经读完了两个⽂件。实战路线中第四阶段是  RAG （检索增强⽣成），对应第⼆个项⽬  DocMind 企业
+知识库，时间  2~3 周。知识点  PDF 中覆盖了从⽂档加载到  Ragas 评估的完整内容。下⾯我结合你的现
+有基础（ TaskFlow 已掌握  FastAPI + SQLModel + PostgreSQL + Redis + JWT + LangChain ），制定⼀
+份分板块、循序渐进的教学计划。
+第四阶段： RAG 检索增强⽣成  ⸺ DocMind 企业知识库教学计划
+总体说明
+与你现有能⼒的衔接
+你已经完成了  TaskFlow 的  LangChain 阶段，具备：
+FastAPI 后端分层架构（ Router / Service / Repository / Model / Schema ）
+SQLModel + PostgreSQL + Redis + JWT 认证
+LangChain ChatModel / Prompt / Runnable / Tools / Agent / Memory / Callbacks
+第四阶段不是从零开始，⽽是复⽤你已有的后端架构能⼒，新增  RAG 这条技术线。实战路线明确建议⽤
+PostgreSQL + pgvector（⽽不是  Chroma/Milvus/Qdrant ），这样⽤户、⽂档、对话、 Embedding 都在
+⼀套数据库⾥。
+项⽬定位
+2026/8/29 20:20 202608292019-doubao-Langchain 实战教学（第六、七板块） -8msg
+blob:chrome-extension://jkpfpfgaadbpkmcnejpdjickakjnjﬂl/e464d99d-58a2-4723-b14d-c83c164e6813 56/76
+
+第 3 页
+DocMind 企业知识库：⽤户上传⽂档（ PDF/Word/Markdown ），系统解析并向量化存储，⽤户提问时从
+知识库中检索相关内容，结合  LLM ⽣成带引⽤来源的回答。
+三版迭代策略（来⾃实战路线）
+版本 ⽬标 包含内容
+第⼀
+版
+跑通最⼩  RAG 闭
+环
+PDF 上传  → Chunk → Embedding → pgvector → Top-K 检索  → Prompt
+→ LLM 回答
+第⼆
+版
+企业级能⼒ metadata 过滤、⽂档引⽤、⻚⾯引⽤、⽤户知识库隔离、对话历史、多格
+式⽀持
+第三
+版
+优化与评估 混合检索、 Rerank 、 Chunk 策略实验、 Ragas 量化评估
+项⽬结构建议
+text
+docmind/
+├── app/
+│ ├── api/
+│ │ ├── auth.py # 复⽤  TaskFlow 模式
+│ │ ├── documents.py # 新增：⽂档上传 / 管理
+│ │ └── rag.py # 新增：问答接⼝
+│ ├── core/ # 复⽤： config/security/exceptions
+│ ├── db/ # 复⽤： database/redis + pgvector 初始化
+│ ├── models/
+│ │ ├── user.py # 复⽤
+│ │ ├── document.py # 新增：⽂档元数据
+│ │ └── document_chunk.py # 新增：⽂档⽚段  + 向量
+│ ├── repositories/
+│ │ ├── user_repository.py # 复⽤
+│ │ ├── document_repository.py # 新增
+│ │ └── vector_repository.py # 新增：向量操作
+│ ├── schemas/
+│ │ ├── user.py # 复⽤
+│ │ ├── document.py # 新增
+│ │ └── rag.py # 新增
+│ ├── services/
+│ │ ├── auth_service.py # 复⽤
+│ │ ├── document_service.py # 新增：⽂档处理流⽔线
+│ │ ├── embedding_service.py # 新增：向量化
+│ │ ├── retrieval_service.py # 新增：检索
+│ │ └── rag_service.py # 新增： RAG 问答编排
+2026/8/29 20:20 202608292019-doubao-Langchain 实战教学（第六、七板块） -8msg
+blob:chrome-extension://jkpfpfgaadbpkmcnejpdjickakjnjﬂl/e464d99d-58a2-4723-b14d-c83c164e6813 57/76
+
+第 4 页
+板块⼀： RAG 核⼼原理  + 项⽬初始化  + pgvector 环境
+学习⽬标
+理解  RAG 解决什么问题、完整⼯作流程，搭好  DocMind 项⽬⻣架和  pgvector 环境。
+重要概念解释
+1. 为什么需要  RAG ？
+LLM 有两个固有缺陷：
+幻觉（ Hallucination ）：模型会编造不存在的事实，⽽且语⽓很⾃信
+知识时效性：模型训练数据有截⽌⽇期，不知道最新信息
+RAG （ Retrieval-Augmented Generation ，检索增强⽣成）的思路是：
+│ └── rag/ # 新增： RAG 专⽤模块
+│ ├── loaders.py # ⽂档加载器
+│ ├── splitters.py # ⽂本分割器
+│ ├── embeddings.py # Embedding 封装
+│ ├── vectorstore.py # pgvector 向量存储
+│ ├── retrievers.py # 检索器
+│ ├── prompts.py # RAG Prompt
+│ └── chains.py # RAG 链
+├── tests/
+├── data/ # 上传⽂件存储
+├── eval/ # 评估测试集
+│ └── questions.json
+├── Dockerfile
+├── compose.yaml
+├──.env
+└── requirements.txt
+为什么新建  app/rag/  ⽬录⽽不是放在  app/llm/ ？
+RAG 有⾃⼰独⽴的组件体系（ Loader / Splitter / Embedding / VectorStore / Retriever ），和通⽤
+LLM 能⼒（ ChatModel / Agent / Tool ）是不同的关注点。分开后职责更清晰，也符合  LangChain
+官⽅的模块划分习惯。
+不让  LLM 凭记忆回答，⽽是先从你的私有知识库中检索相关内容，把检索到的原⽂作为上下⽂⼀
+起发给  LLM ，让  LLM 基于这些事实来回答。
+2026/8/29 20:20 202608292019-doubao-Langchain 实战教学（第六、七板块） -8msg
+blob:chrome-extension://jkpfpfgaadbpkmcnejpdjickakjnjﬂl/e464d99d-58a2-4723-b14d-c83c164e6813 58/76
+
+第 5 页
+类⽐：开卷考试  vs 闭卷考试。 RAG 就是给  LLM ⼀本 " 参考书 " ，让它先查书再答题。
+2. RAG 的完整⼯作流程（两阶段）
+text
+3. 为什么⽤  pgvector ⽽不是专⽤向量数据库？
+实战路线的建议是  PostgreSQL + pgvector ，原因：
+你已经在⽤  PostgreSQL ，不需要额外维护⼀套数据库
+pgvector 是  PostgreSQL 扩展，⽀持  HNSW/IVFFlat 向量索引，性能⾜够中⼩型项⽬
+⽂档元数据和向量存在同⼀张表，⽅便  JOIN 查询和  metadata 过滤
+⽤户、⽂档、对话、向量统⼀存储，架构简单
+实战部分
+1. 创建  DocMind 项⽬⻣架：复⽤  TaskFlow 的  core/ 、 db/ 、 auth  相关代码，搭建  FastAPI +
+SQLModel + JWT 基础
+2. 配置  pgvector：
+compose.yaml  中  PostgreSQL 镜像使⽤⽀持  pgvector 的版本（如
+pgvector/pgvector:pg16 ）
+数据库初始化时执⾏  CREATE EXTENSION IF NOT EXISTS vector;
+3. 验证环境：写⼀个最⼩测试，确认  vector  类型可⽤、能插⼊和查询向量
+4. 安装依赖： langchain 、 langchain-community 、 pypdf 、 pgvector 、
+ python-
+multipart （⽂件上传需要）
+验收标准
+docker compose up  能启动带  pgvector 的  PostgreSQL
+FastAPI 能启动， /health  接⼝正常
+能执⾏  CREATE EXTENSION vector  并创建带  vector  列的表
+板块⼆：⽂档加载与解析（ Document Loader ）
+学习⽬标
+【索引阶段（离线，⽂档上传时执⾏）】
+⽂档  → 解析⽂本  → 切分  Chunk → 向量化 (Embedding) → 存⼊向量数据库
+【检索⽣成阶段（在线，⽤户提问时执⾏）】
+⽤户问题  → 向量化  → 向量检索 (Top-K) → 拿到相关⽚段  →
+拼接  Prompt( 问题 + 检索内容 ) → LLM ⽣成回答
+2026/8/29 20:20 202608292019-doubao-Langchain 实战教学（第六、七板块） -8msg
+blob:chrome-extension://jkpfpfgaadbpkmcnejpdjickakjnjﬂl/e464d99d-58a2-4723-b14d-c83c164e6813 59/76
+
+第 6 页
+理解  LangChain 的  Document  对象，掌握  PDF ⽂档的加载和解析，提取⽂本和元数据。
+重要概念解释
+1. LangChain 的  Document 对象
+Document  是  LangChain 中对 " ⼀段⽂本及其元数据 " 的统⼀抽象：
+python
+page_content ：⽂本内容（字符串）
+metadata ：字典，存放来源、⻚码、作者等任意附加信息
+后续所有环节（分割、向量化、检索）都围绕  Document 对象流转， metadata 会⼀路传递，最终⽤于
+引⽤来源。
+2. ⽂档加载器（ Document Loader ）
+LangChain 提供了各种格式的加载器，统⼀输出  List[Document] ：
+加载器 适⽤格式 特点
+PyPDFLoader PDF 每⻚⼀个  Document ， metadata 含  page 和  source
+UnstructuredPDFLoader PDF 解析更智能，能处理表格、标题层级，但依赖较重
+Docx2txtLoader Word (.docx) 简单提取⽂本
+TextLoader 纯⽂本 /Markdown 按⽂件读取
+第⼀版只⽤  PyPDFLoader ，跑通后再扩展其他格式。
+3. 元数据（ metadata ）为什么重要？
+metadata 不是可有可⽆的，它是后续功能的基础：
+source  → 回答时标注 " 来源：员⼯⼿册 .pdf"
+from langchain_core.documents import Document
+doc = Document(
+ page_content=" 这是⽂档的⽂本内容 ...",
+ metadata={
+ "source": " 员⼯⼿册 .pdf",
+ "page": 3,
+ "author": "HR 部⻔ ",
+ }
+)
+2026/8/29 20:20 202608292019-doubao-Langchain 实战教学（第六、七板块） -8msg
+blob:chrome-extension://jkpfpfgaadbpkmcnejpdjickakjnjﬂl/e464d99d-58a2-4723-b14d-c83c164e6813 60/76
+
+第 7 页
+page  → 回答时标注 " 第  13 ⻚ "
+user_id  → ⽤户知识库隔离（ A ⽤户看不到  B ⽤户的⽂档）
+document_id  → 删除⽂档时能定位删除哪些向量
+实战部分
+1. 新建  app/rag/loaders.py ：封装  PDF 加载函数
+python
+2. 新建  app/models/document.py ：⽂档元数据模型（⽂件名、上传时间、⽤户 ID 、状态等）
+3. 新建  app/api/documents.py ：实现  POST /documents/upload  接⼝
+接收上传的  PDF ⽂件
+保存到  data/  ⽬录
+记录⽂档元数据到数据库
+调⽤加载器解析，打印前  2 ⻚内容验证
+4. 测试：上传⼀个真实  PDF ，确认能正确提取⽂本和⻚码
+验收标准
+上传  PDF 后，数据库中有⽂档记录
+能打印出  PDF 的⽂本内容，每⻚对应⼀个  Document
+metadata 中包含  source 和  page
+板块三：⽂本分割（ Text Splitter / Chunking ）
+学习⽬标
+理解为什么要切分⽂档，掌握  RecursiveCharacterTextSplitter  的⽤法，理解  chunk_size 和
+chunk_overlap 对效果的影响。
+重要概念解释
+1. 为什么需要切分（ Chunking ）？
+from langchain_community.document_loaders import PyPDFLoader
+def load_pdf(file_path: str) -> list[Document]:
+loader = PyPDFLoader(file_path)
+documents = loader.load()
+# 统⼀补充  metadata
+for doc in documents:
+doc.metadata["file_type"] = "pdf"
+return documents
+2026/8/29 20:20 202608292019-doubao-Langchain 实战教学（第六、七板块） -8msg
+blob:chrome-extension://jkpfpfgaadbpkmcnejpdjickakjnjﬂl/e464d99d-58a2-4723-b14d-c83c164e6813 61/76
+
+第 8 页
+两个原因：
+Embedding 模型有输⼊⻓度限制：⼤多数  Embedding 模型单次最多处理  512 或  8192 个  Token ，
+整本书⽆法直接向量化
+检索精度：如果整个⽂档是⼀个⼤向量，检索时只能返回 " 整个⽂档 " ，⽆法定位到具体段落。切分成
+⼩块后，检索能返回最相关的⽚段，回答更精准
+2. RecursiveCharacterTextSplitter （递归字符分割器）
+这是  LangChain 最推荐的通⽤分割器，⼯作原理：
+1. 按优先级尝试不同的分隔符： \n\n （段落） → \n （⾏） → 。 /. （句⼦） → （空格） → ``
+（字符）
+2. 每次切分后检查每段⻓度是否超过  chunk_size
+3. 超过了就⽤下⼀级分隔符继续切
+4. 这样能尽量在段落 / 句⼦边界处切分，保持语义完整
+3. 两个关键参数
+参数 含义 典型值 影响
+chunk_size 每个⽚段的最⼤字符数 300~100
+0
+太⼩ → 上下⽂碎⽚化；太⼤ → 检索不精准、浪
+费  Token
+chunk_overla
+p
+相邻⽚段之间的重叠字
+符数
+50~200 防⽌关键信息被切在边界上丢失
+重叠的意义：假设⼀句话被切在两个  Chunk 中间，没有重叠的话两个  Chunk 都不完整。重叠  100 字符
+能保证边界处的语义连续。
+4. 分割策略是  RAG 效果的关键变量之⼀
+板块九会做实验对⽐不同  chunk_size 的效果。第⼀版先⽤  
+chunk_size=500,
+chunk_overlap=100 ，这是⼀个经验上⽐较通⽤的起点。
+实战部分
+1. 新建  app/rag/splitters.py ：
+python
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+def split_documents(documents: list[Document]) -> list[Document]:
+splitter = RecursiveCharacterTextSplitter(
+chunk_size=500,
+chunk_overlap=100,
+separators=["\n\n", "\n", " 。 ", ".", " ", ""],
+2026/8/29 20:20 202608292019-doubao-Langchain 实战教学（第六、七板块） -8msg
+blob:chrome-extension://jkpfpfgaadbpkmcnejpdjickakjnjﬂl/e464d99d-58a2-4723-b14d-c83c164e6813 62/76
+
+第 9 页
+2. 在  document_service.py  中接⼊分割流程：加载  PDF → 分割  → 打印分割后的  chunk 数量和内容
+3. 实验：⽤同⼀个  PDF 分别测试  chunk_size=300/500/800 ，观察分割结果的差异，记录  chunk 数
+量
+4. 新建  app/models/document_chunk.py ：定义  Chunk 数据模型（关联  document_id 、⽂本内
+容、 chunk_index 、 page 等，向量列留到板块五）
+验收标准
+上传  PDF 后能正确分割成多个  Chunk
+每个  Chunk 不超过  chunk_size ，相邻  Chunk 有重叠
+Chunk 的  metadata 保留了  source 、 page 、 chunk_index
+板块四： Embedding 与向量化
+学习⽬标
+理解  Embedding 的原理，掌握  LangChain 的  Embeddings 接⼝，能将⽂本⽚段转换为向量。
+重要概念解释
+1. Embedding （嵌⼊）是什么？
+Embedding 是将⽂本转换成⼀个⾼维浮点数向量（如  1536 维、 1024 维、 768 维）的过程。
+核⼼思想：语义相似的⽂本，在向量空间中距离也近。
+text
+这样，⽤户提问时把问题也向量化，然后在向量库中找距离最近的⼏个⽚段，就能找到语义相关的内容
+⸺ 即使⽤词不完全⼀样。
+2. Embedding 模型选择
+)
+chunks = splitter.split_documents(documents)
+# 给每个  chunk 补充  metadata
+for i, chunk in enumerate(chunks):
+chunk.metadata["chunk_index"] = i
+return chunks
+" 如何申请年假 " → [0.12, -0.34, 0.56,...] ←┐
+ ├── 距离近（余弦相似度⾼）
+" 年假申请流程 " → [0.15, -0.31, 0.52,...] ←┘
+" 今天天⽓怎么样 " → [0.88, 0.21, -0.45,...] ← 与上⾯两个距离远
+2026/8/29 20:20 202608292019-doubao-Langchain 实战教学（第六、七板块） -8msg
+blob:chrome-extension://jkpfpfgaadbpkmcnejpdjickakjnjﬂl/e464d99d-58a2-4723-b14d-c83c164e6813 63/76
+
+第 10 页
+模型 维度 特点
+OpenAI text-embedding-3-small 1536 效果好，需  API Key ，按  Token 计费
+OpenAI text-embedding-ada-002 1536 经典模型，逐渐被  3-small 替代
+BGE-large-zh 1024 开源，中⽂效果好，可本地部署
+m3e-base 768 开源，中⽂，轻量
+通义千问  text-embedding-v3 1024/2048 阿⾥云，中⽂优化
+建议：如果你已经在⽤  OpenAI 兼容的  LLM API ，优先⽤同⼀家的  Embedding API （配置简单）。如果想
+本地部署， BGE 是中⽂场景的好选择。第⼀版⽤  API ⽅式，跑通后可以尝试本地模型。
+3. 余弦相似度（ Cosine Similarity ）
+衡量两个向量相似度的常⽤⽅法，取值范围  [-1, 1] ：
+1 ：完全相同⽅向
+0 ：⽆关
+-1 ：完全相反
+RAG 检索时，计算问题向量与每个⽂档⽚段向量的余弦相似度，取最⾼的  Top-K 个。
+实战部分
+1. 新建  app/rag/embeddings.py ：封装  Embedding 模型
+python
+2. 测试向量化：写⼀个脚本，对  3 个句⼦做  Embedding ，计算它们之间的余弦相似度，验证 " 语义相近
+的句⼦相似度⾼ "
+3. 在  document_service.py  中接⼊：分割后的  Chunk 批量调⽤
+embeddings.embed_documents()  得到向量列表
+4. .env  配置：新增  EMBEDDING_MODEL 、 EMBEDDING_API_KEY 、 EMBEDDING_BASE_URL
+from langchain_openai import OpenAIEmbeddings # 或对应提供商
+from app.core.config import settings
+def get_embeddings():
+return OpenAIEmbeddings(
+ model=settings.EMBEDDING_MODEL,
+ api_key=settings.EMBEDDING_API_KEY,
+ base_url=settings.EMBEDDING_BASE_URL,
+ )
+2026/8/29 20:20 202608292019-doubao-Langchain 实战教学（第六、七板块） -8msg
+blob:chrome-extension://jkpfpfgaadbpkmcnejpdjickakjnjﬂl/e464d99d-58a2-4723-b14d-c83c164e6813 64/76
+
+第 11 页
+验收标准
+能对单段⽂本⽣成向量（打印维度和前⼏个数值）
+语义相似的句⼦余弦相似度明显⾼于不相关的句⼦
+能对⼀批  Chunk 批量⽣成向量
+板块五：向量存储与  pgvector 集成
+学习⽬标
+掌握  pgvector 的使⽤，设计向量表，实现向量的存储和相似度查询。
+重要概念解释
+1. pgvector 的核⼼能⼒
+pgvector 是  PostgreSQL 的扩展，新增了  vector  数据类型和三种相似度操作符：
+操作符 含义 对应相似度
+<-> 欧⽒距离（ L2 ） 距离越⼩越相似
+<#> 内积（负） 值越⼤越相似
+<=> 余弦距离 距离越⼩越相似（ = 1 - 余弦相似度）
+查询示例：
+sql
+2. 向量表设计
+sql
+-- 找与查询向量最相似的  5 个⽚段（按余弦距离排序）
+SELECT content, metadata, embedding <=>:query_vector AS distance
+FROM document_chunks
+ORDER BY embedding <=>:query_vector
+LIMIT 5;
+CREATE TABLE document_chunks (
+ id SERIAL PRIMARY KEY,
+ document_id INTEGER REFERENCES documents(id),
+ user_id INTEGER REFERENCES users(id),
+ content TEXT NOT NULL,
+ chunk_index INTEGER,
+ page INTEGER,
+2026/8/29 20:20 202608292019-doubao-Langchain 实战教学（第六、七板块） -8msg
+blob:chrome-extension://jkpfpfgaadbpkmcnejpdjickakjnjﬂl/e464d99d-58a2-4723-b14d-c83c164e6813 65/76
+
+第 12 页
+3. 向量索引： HNSW vs IVFFlat
+索引类型 特点 适⽤场景
+hnsw 基于图的索引，查询快，内存占⽤⾼，构建慢 数据量中等，查询延迟要求⾼
+ivfflat 基于聚类的索引，构建快，内存⼩，需要调参 数据量⼤，可接受稍⾼延迟
+第⼀版数据量⼩，可以先不建索引（全表扫描也够快），等数据多了再加  HNSW 索引。
+4. 维度必须⼀致
+Embedding 模型输出多少维， vector(N)  的  N 就必须是多少。如果换了  Embedding 模型（维度变
+了），需要重建向量列和所有数据。
+实战部分
+1. 完善  app/models/document_chunk.py ：⽤  SQLModel 定义带  vector  列的模型（ pgvector 提
+供了  Vector  类型适配）
+2. 新建  app/repositories/vector_repository.py ：
+add_chunks(chunks, embeddings, document_id, user_id) ：批量插⼊⽚段 + 向量
+search_similar(query_embedding, user_id, top_k, filters) ：相似度检索
+3. 新建  app/rag/vectorstore.py ：封装  LangChain ⻛格的向量存储操作（可选，也可以直接⽤
+Repository ）
+4. 数据库迁移： Alembic ⽣成  migration ，创建  document_chunks  表和  vector  扩展
+5. 测试：插⼊⼏个测试向量，执⾏相似度查询，确认返回结果按距离排序
+验收标准
+能将  Chunk ⽂本和对应向量存⼊  document_chunks  表
+能根据查询向量返回  Top-K 个最相似的⽚段
+返回结果包含  content 、 source 、 page 、 distance
+板块六：检索器  Retriever 与  Top-K 检索
+学习⽬标
+ source VARCHAR(500),
+ embedding vector(1536), -- 维度要和  Embedding 模型输出⼀致
+ created_at TIMESTAMP DEFAULT NOW()
+);
+-- 向量索引（加速查询，数据量⼤时必须建）
+CREATE INDEX ON document_chunks USING hnsw (embedding vector_cosine_ops);
+2026/8/29 20:20 202608292019-doubao-Langchain 实战教学（第六、七板块） -8msg
+blob:chrome-extension://jkpfpfgaadbpkmcnejpdjickakjnjﬂl/e464d99d-58a2-4723-b14d-c83c164e6813 66/76
+
+第 13 页
+理解  Retriever 抽象，掌握带  metadata 过滤的检索，理解  Top-K 参数的影响。
+重要概念解释
+1. Retriever （检索器）是什么？
+Retriever 是  LangChain 对 " 根据查询返回相关⽂档 " 的统⼀抽象。它的接⼝很简单：
+python
+你的  vector_repository.search_similar()  本质上就是⼀个  Retriever ，只是  LangChain 提供了
+标准接⼝⽅便和  Chain 组合。
+2. Top-K 参数
+检索时返回多少个最相关的⽚段：
+K 太⼩（如  1 ）：可能漏掉相关信息，回答不全⾯
+K 太⼤（如  20 ）：引⼊不相关内容，浪费  Token ，可能⼲扰  LLM
+经验值： 3~5 是常⻅起点，板块九会做实验
+3. Metadata 过滤（企业级关键能⼒）
+检索时不能只看相似度，还要加过滤条件：
+user_id = 当前⽤户  → ⽤户隔离， A 不能搜到  B 的⽂档
+document_id IN (...)  → 限定在某些⽂档中搜索
+page = 13  → 限定⻚码
+pgvector 的优势就是  metadata 和向量在同⼀张表，可以直接⽤  WHERE  过滤：
+sql
+4. 检索结果的处理
+检索返回的是  list[Document] ，需要拼接成⼀段⽂本放⼊  Prompt ：
+python
+retriever.get_relevant_documents(query: str) -> list[Document]
+SELECT * FROM document_chunks
+WHERE user_id =:user_id AND document_id =:doc_id
+ORDER BY embedding <=>:query_vector
+LIMIT:top_k;
+context = "\n\n---\n\n".join([
+ 
+2026/8/29 20:20 202608292019-doubao-Langchain 实战教学（第六、七板块） -8msg
+blob:chrome-extension://jkpfpfgaadbpkmcnejpdjickakjnjﬂl/e464d99d-58a2-4723-b14d-c83c164e6813 67/76
+
+第 14 页
+实战部分
+1. 新建  app/rag/retrievers.py ：
+封装检索逻辑：问题  → Embedding → vector_repository 搜索  → 返回  Document 列表
+⽀持  user_id  过滤、 top_k  参数、可选的  document_id  过滤
+2. 新建  app/services/retrieval_service.py ：业务层封装，调⽤  Embedding + Retriever
+3. 测试检索效果：上传⼀个  PDF （如员⼯⼿册），问⼏个问题，⼈⼯检查返回的⽚段是否相关
+4. 实验  Top-K：同⼀个问题分别⽤  K=2/5/10 ，观察返回结果的差异
+验收标准
+输⼊问题能返回  Top-K 个相关  Document
+检索结果带  metadata （ source 、 page 、 distance ）
+user_id 过滤⽣效（不同⽤户搜不到对⽅的⽂档）
+板块七： RAG 链构建  ⸺ 第⼀版完整跑通
+学习⽬标
+将前⾯所有环节组合成完整的  RAG 问答链，实现第⼀版最⼩闭环：上传  PDF → 提问  → 基于⽂档回答。
+重要概念解释
+1. RAG Prompt 的设计
+RAG 的  Prompt 和普通聊天  Prompt 不同，核⼼是告诉  LLM ：
+你是基于提供的参考资料回答
+如果资料中没有答案，就说不知道，不要编造
+回答要简洁准确
+典型  RAG Prompt ：
+text
+f"[ 来源 : {doc.metadata['source']} 第{doc.metadata['page']}⻚ ]\n{doc.page_content}"
+ for doc in retrieved_docs
+])
+你是⼀个企业知识库助⼿。请根据以下参考资料回答⽤户的问题。
+参考资料：
+{context}
+⽤户问题： {question}
+2026/8/29 20:20 202608292019-doubao-Langchain 实战教学（第六、七板块） -8msg
+blob:chrome-extension://jkpfpfgaadbpkmcnejpdjickakjnjﬂl/e464d99d-58a2-4723-b14d-c83c164e6813 68/76
+
+第 15 页
+2. RAG 链的结构（ LCEL ）
+⽤你板块三学过的  LCEL 组合：
+python
+或者更简单的分步写法（第⼀版推荐，更易理解）：
+python
+3. 第⼀版不做什么
+根据实战路线，第⼀版明确不做：
+❌  GraphRAG 、 Agentic RAG 、 Self-RAG 、 CRAG 、 HyDE 、 MultiQuery
+❌  对话历史（板块⼋再加）
+❌  引⽤来源标注（板块⼋再加）
+先把 " 检索 → ⽣成 " 这条主线跑通。
+回答要求：
+1. 只基于参考资料中的信息回答
+2. 如果参考资料中没有相关信息，请回答 " 根据现有资料⽆法回答该问题 "
+3. 回答简洁明了
+# 输⼊字典： {"question": "...", "context": "..."}
+# RunnableParallel 并⾏获取  context 和传递  question
+rag_chain = (
+ {"context": retriever | format_docs, "question": RunnablePassthrough()}
+ | prompt
+ | model
+ | StrOutputParser()
+)
+def rag_query(question: str, user_id: int) -> str:
+ # 1. 检索
+ docs = retriever.get_relevant_documents(question, user_id=user_id)
+ # 2. 拼接上下⽂
+ context = format_documents(docs)
+ # 3. 构造  Prompt
+ messages = prompt.format_messages(context=context, question=question)
+ # 4. 调⽤  LLM
+ response = model.invoke(messages)
+ return response.content
+2026/8/29 20:20 202608292019-doubao-Langchain 实战教学（第六、七板块） -8msg
+blob:chrome-extension://jkpfpfgaadbpkmcnejpdjickakjnjﬂl/e464d99d-58a2-4723-b14d-c83c164e6813 69/76
+
+第 16 页
+实战部分
+1. 新建  app/rag/prompts.py ：定义  RAG 专⽤的  ChatPromptTemplate
+2. 新建  app/rag/chains.py ：构建  RAG 问答链
+3. 新建  app/services/rag_service.py ：编排检索  + ⽣成，返回回答和检索到的⽂档
+4. 新建  app/api/rag.py ：
+POST /rag/query ：接收问题，返回回答
+请求体： {"question": " 年假多少天？ "}
+响应体： {"answer": "...", "sources": [...]}
+5. 端到端测试：
+上传⼀个  PDF （⽐如⼀份制度⽂档）
+提问⽂档中确实有的问题  → 验证回答正确
+提问⽂档中没有的问题  → 验证回答 " ⽆法回答 " ⽽不是编造
+验收标准
+上传  PDF 后，能基于⽂档内容正确回答问题
+⽂档中没有的信息，模型不会编造
+完整流程：上传  → 向量化  → 存储  → 提问  → 检索  → ⽣成，全部⾃动完成
+板块⼋：企业级增强  ⸺ 第⼆版
+学习⽬标
+为  RAG 系统增加企业级能⼒：引⽤来源、⽤户隔离、对话历史、多格式⽀持。
+重要概念解释
+1. 引⽤来源（ Citation ）
+企业级  RAG 必须告诉⽤户 " 答案来⾃哪⾥ " ，否则⽤户⽆法验证可信度。
+实现⽅式：检索时保留每个  Document 的  metadata （ source 、 page ），回答时⼀并返回：
+json
+{
+ "answer": " 公司正式员⼯年度带薪年假为 10 天。 ",
+ "sources": [
+ {"document": " 员⼯⼿册 .pdf", "page": 13, "snippet": 
+" 正式员⼯年度带薪年假为 10 天 ..."},
+ {"document": " 考勤制度 .pdf", "page": 5, "snippet": "..."}
+ ]
+}
+2026/8/29 20:20 202608292019-doubao-Langchain 实战教学（第六、七板块） -8msg
+blob:chrome-extension://jkpfpfgaadbpkmcnejpdjickakjnjﬂl/e464d99d-58a2-4723-b14d-c83c164e6813 70/76
+
+第 17 页
+2. ⽤户知识库隔离
+每个⽤户只能检索⾃⼰上传的⽂档。实现⽅式就是检索时强制加  
+WHERE user_id
+=:current_user_id ，这在板块六已经做了基础。第⼆版要确保：
+上传⽂档时记录  user_id
+向量化时  user_id  存⼊  chunk 表
+检索时必须带  user_id  过滤（不能省略）
+删除⽂档时只删⾃⼰的
+3. 对话式  RAG （带历史）
+⽤户可能追问： " 那病假呢？ "⸺ 这⾥的 " 那 " 指代上⼀轮的话题。需要把对话历史也放进  Prompt 。
+但注意：历史消息不参与检索，只参与⽣成。检索只⽤当前问题（或对当前问题做改写），⽣成时把历史
++ 当前问题  + 检索上下⽂⼀起发给  LLM 。
+4. 多格式⽀持
+在  loaders.py  中根据⽂件扩展名选择不同的加载器：
+.pdf  → PyPDFLoader
+.docx  → Docx2txtLoader
+.md  / .txt  → TextLoader
+统⼀输出  List[Document] ，后续分割、向量化逻辑不变。
+实战部分
+1. 引⽤来源：改造  rag_service.py ，返回回答时附带  sources 列表（⽂档名、⻚码、⽚段摘要）
+2. ⽤户隔离加固：检查所有检索路径，确保  user_id  过滤不可绕过；增加测试⽤例验证跨⽤户不可⻅
+3. 对话历史：
+复⽤  TaskFlow 板块⼋的  Conversation 模式
+POST /rag/query  增加  conversation_id  参数
+Prompt 中加⼊历史消息占位
+4. 多格式⽀持： loaders.py  增加  Word 和  Markdown 加载， document_service.py  根据扩展名
+路由
+5. ⽂档管理： GET /documents （列表）、 DELETE /documents/{id} （删除⽂档及对应向量）
+验收标准
+回答附带来源引⽤（⽂档名  + ⻚码）
+⽤户  A 搜不到⽤户  B 的⽂档
+⽀持多轮追问（ " 那病假呢 " 能理解上下⽂）
+⽀持上传  PDF/Word/Markdown 三种格式
+能删除⽂档，删除后对应向量也被清除
+2026/8/29 20:20 202608292019-doubao-Langchain 实战教学（第六、七板块） -8msg
+blob:chrome-extension://jkpfpfgaadbpkmcnejpdjickakjnjﬂl/e464d99d-58a2-4723-b14d-c83c164e6813 71/76
+
+第 18 页
+板块九：检索优化  ⸺ 第三版
+学习⽬标
+掌握混合检索、 Rerank 重排序、 Query 改写等优化⼿段，理解它们解决什么问题。
+重要概念解释
+1. 纯向量检索的缺陷
+向量检索擅⻓语义匹配，但有两个弱点：
+专有名词 / 编号搜不准：⽐如 "GB/T 2024-2023" 这种编号，向量可能匹配不到精确字符串
+关键词匹配弱：⽤户问 "VPN 怎么配置 " ，如果⽂档中写的是 " 虚拟专⽤⽹络设置 " ，向量能匹配；但如
+果是特定产品名 "OpenVPN 2.4" ，向量可能不如关键词精确
+2. 混合检索（ Hybrid Search ）
+同时做两路检索，然后合并结果：
+向量检索：语义相似（解决同义表达）
+关键词检索：精确字符串匹配（解决专有名词 / 编号）
+PostgreSQL ⾃带全⽂检索（ tsvector  / tsquery ），可以和  pgvector ⼀起⽤：
+sql
+3. Rerank （重排序）
+先粗召回  Top-20 个⽚段，再⽤⼀个更强⼤的  Cross-Encoder 模型对这  20 个⽚段逐⼀打分排序，取
+Top-5 。
+为什么不直接⽤  Cross-Encoder 检索全库？因为  Cross-Encoder 需要把 " 问题 + ⽂档 " 拼接后⼀起输⼊模
+型，计算量很⼤，⽆法对全库做。所以策略是 " 向量快召回  + Cross-Encoder 精排 " 。
+常⽤  Rerank 模型： bge-reranker-large 、 Cohere Rerank API 、通义  Rerank 。
+4. Query 改写（ Query Transformation ）
+⽤户的问题可能表述不清、有指代、太⼝语化。在检索前⽤  LLM 把问题改写成更适合检索的形式：
+原问题： " 那个假怎么请？ " → 改写： " 年假的申请流程是什么？ "
+-- 向量检索结果
+SELECT id FROM document_chunks WHERE user_id=:uid ORDER BY embedding <=>:qvec 
+LIMIT 10
+-- 关键词检索结果
+SELECT id FROM document_chunks WHERE user_id=:uid AND to_tsvector(content) @@ 
+plainto_tsquery(:q) LIMIT 10
+-- 合并去重，再⽤  RRF 或加权打分排序
+2026/8/29 20:20 202608292019-doubao-Langchain 实战教学（第六、七板块） -8msg
+blob:chrome-extension://jkpfpfgaadbpkmcnejpdjickakjnjﬂl/e464d99d-58a2-4723-b14d-c83c164e6813 72/76
+
+第 19 页
+原问题： "VPN" → 改写： " 如何配置和连接虚拟专⽤⽹络  VPN ？ "
+第⼀版可以不做，等遇到检索效果差的问题时再加。
+实战部分
+1. 混合检索：在  vector_repository.py  中增加  PostgreSQL 全⽂检索，与向量检索结果合并（⽤
+RRF 算法融合排序）
+2. Rerank 集成：
+新增  app/rag/reranker.py ，封装  Rerank API 或本地模型
+检索流程改为：向量召回  Top-20 → Rerank 精排  → 返回  Top-5
+3. Chunk 策略实验：⽤同⼀批⽂档和问题，分别测试  chunk_size=300/500/800 ，⼈⼯对⽐检索相
+关性
+4. 记录实验结果：为板块⼗的  Ragas 评估做准备
+验收标准
+混合检索能搜到纯向量检索漏掉的专有名词
+Rerank 后  Top-5 的相关性⽐纯向量检索更⾼
+有  chunk_size 对⽐实验记录
+板块⼗： Ragas 评估体系
+学习⽬标
+理解  RAG 量化评估的思想，掌握  Ragas 四⼤核⼼指标，建⽴测试集并做参数对⽐实验。
+重要概念解释
+1. 为什么需要量化评估？
+" 感觉回答更准确了 " 是不可靠的。 RAG 系统有很多可调参数（ chunk_size 、 top_k 、是否  rerank 、
+embedding 模型），每次改动后需要客观数据来判断是变好还是变差。
+2. LLM-as-a-Judge （⽤⼤模型当评委）
+Ragas 的核⼼思想：⽤另⼀个  LLM （或同⼀个  LLM ）来评估回答质量，⾃动打分。不需要⼈⼯标注⼤量
+数据。
+3. 四⼤核⼼指标
+指标 含义 衡量什么 ⾼分条件
+Faithfulness （忠实度） 回答中的每个声明是否都能在检
+索上下⽂中找到依据
+有没有幻觉 回答完全基于上下
+⽂，不编造
+2026/8/29 20:20 202608292019-doubao-Langchain 实战教学（第六、七板块） -8msg
+blob:chrome-extension://jkpfpfgaadbpkmcnejpdjickakjnjﬂl/e464d99d-58a2-4723-b14d-c83c164e6813 73/76
+
+第 20 页
+指标 含义 衡量什么 ⾼分条件
+Answer Relevancy
+（回答相关性）
+回答是否切题，有没有答⾮所问 回答与问题的相
+关度
+回答直接回应了问题
+Context Precision （上
+下⽂精确率）
+检索到的⽚段中，有多少是真正
+相关的
+检索准不准（查
+准率）
+Top-K 中相关⽚段⽐
+例⾼
+Context Recall （上下
+⽂召回率）
+回答需要的信息，有多少被检索
+到了
+检索全不全（查
+全率）
+回答所需信息都在检
+索结果中
+4. 测试集构建
+准备⼀个  questions.json ，包含  30~50 个问题：
+json
+ground_truth  是标准答案，⽤于计算  Context Recall （标准答案中的信息是否都被检索到了）。
+实战部分
+1. 构建测试集：基于你上传的⽂档，⼿动编写  30 个问题  + 标准答案，存⼊  eval/questions.json
+2. 安装  Ragas： pip install ragas
+3. 编写评估脚本 eval/evaluate.py ：
+遍历测试集，对每个问题执⾏  RAG 检索和⽣成
+收集  question 、 answer 、 contexts 、 ground_truth
+调⽤  Ragas 计算四⼤指标
+输出汇总报告（平均分  + 每题详情）
+4. 参数对⽐实验：
+实验  A ： chunk_size=300 vs 500 vs 800
+实验  B ： top_k=3 vs 5 vs 8
+实验  C ：纯向量检索  vs 混合检索  vs +Rerank
+每个实验跑⼀遍评估，记录指标对⽐表格
+[
+ {
+ "question": " 公司年假多少天？ ",
+ "ground_truth": " 正式员⼯年度带薪年假为 10 天 ",
+ "expected_source": " 员⼯⼿册 .pdf"
+ },
+...
+]
+2026/8/29 20:20 202608292019-doubao-Langchain 实战教学（第六、七板块） -8msg
+blob:chrome-extension://jkpfpfgaadbpkmcnejpdjickakjnjﬂl/e464d99d-58a2-4723-b14d-c83c164e6813 74/76
+
+第 21 页
+5. 写  README：把实验结果和结论写进项⽬  README ，这是简历亮点
+验收标准
+有  30 条以上的测试集
+能跑通  Ragas 评估，输出四⼤指标分数
+⾄少完成⼀组参数对⽐实验，有数据表格和结论
+README 中有评估结果记录
+各板块涉及⽂件总览
+板块 新增⽂件 修改⽂件
+⼀  项⽬初始
+化
++pgvector
+compose.yaml 、 db/database.py 、
+models/ 基础
+.env 、 requirements.txt
+⼆  ⽂档加载 rag/loaders.py 、
+models/document.py 、
+api/documents.py
+services/document_service.py
+三  ⽂本分割 rag/splitters.py 、
+models/document_chunk.py
+services/document_service.py
+四
+Embedding
+rag/embeddings.py 、
+services/embedding_service.py
+.env 、
+services/document_service.py
+五  向量存储 repositories/vector_repository.py 、
+rag/vectorstore.py
+models/document_chunk.py 、
+Alembic migration
+六  检索器 rag/retrievers.py 、
+services/retrieval_service.py
+—
+七  RAG 链
+( 第⼀版 )
+rag/prompts.py 、 rag/chains.py 、
+services/rag_service.py 、
+api/rag.py 、 schemas/rag.py
+—
+⼋  企业级增
+强 ( 第⼆版 )
+— services/rag_service.py 、
+api/rag.py 、 rag/loaders.py 、
+api/documents.py
+九  检索优化
+( 第三版 )
+rag/reranker.py
+ repositories/vector_repository.
+py 、
+services/retrieval_service.py
+2026/8/29 20:20 202608292019-doubao-Langchain 实战教学（第六、七板块） -8msg
+blob:chrome-extension://jkpfpfgaadbpkmcnejpdjickakjnjﬂl/e464d99d-58a2-4723-b14d-c83c164e6813 75/76
+
+第 22 页
+板块 新增⽂件 修改⽂件
+⼗  Ragas
+评估
+eval/questions.json 、
+eval/evaluate.py
+README.md
+学习节奏建议
+按实战路线的  2~3 周，建议：
+时间 板块 ⾥程碑
+Day 1~2 板块⼀  + ⼆ 项⽬跑起来，能上传解析  PDF
+Day 3~4 板块三  + 四 ⽂档分割  + 向量化
+Day 5~6 板块五  + 六 向量存储  + 检索
+Day 7 板块七 第⼀版完整  RAG 闭环跑通
+Day 8~10 板块⼋ 第⼆版企业级能⼒
+Day 11~13 板块九 第三版检索优化
+Day 14~18 板块⼗ Ragas 评估  + 参数实验  + README
+最重要的  5 个知识点
+如果整个  RAG 阶段只能真正学会五件事：
+1. RAG 两阶段流程：索引（⽂档 →Chunk→Embedding→ 向量库）和检索⽣成（问题
+→Embedding→Top-K→Prompt→LLM ）
+2. Chunk 策略：为什么切、怎么切、 chunk_size/overlap 对效果的影响
+3. Embedding + 余弦相似度：语义向量化的原理，为什么能做语义检索
+4. Retriever + metadata 过滤：检索不只是相似度排序，还要有⽤户隔离和条件过滤
+5. Ragas 评估：⽤数据驱动优化，⽽不是凭感觉调参
+准备好了就从板块⼀开始，我会像  LangChain 阶段那样，每个板块详细讲解概念、给出代码、说明怎么
+改以及为什么这么改。
+2026/8/29 20:20 202608292019-doubao-Langchain 实战教学（第六、七板块） -8msg
+blob:chrome-extension://jkpfpfgaadbpkmcnejpdjickakjnjﬂl/e464d99d-58a2-4723-b14d-c83c164e6813 76/76

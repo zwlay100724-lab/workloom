@@ -1,0 +1,148 @@
+# 整个仓库的统一编排：TaskFlow + DocMind + 各自的 Postgres/Redis。
+#
+# 使用：
+#   cp .env.example .env    # 填入 LLM / Embedding Key 和 JWT secret
+#   make up
+#   make migrate
+#
+# 端口规划（两套服务同时启动，互不冲突）：
+#   taskflow api   8000   postgres 5432   redis 6379
+#   docmind  api   8001   postgres 5433   redis 6380
+#
+# 说明：
+# - 构建上下文是仓库根目录，因为两个 Dockerfile 都要 COPY shared/。
+# - 两个 app 使用独立数据库；docmind 不持有 users 外键，用户隔离在应用层做。
+# - 密钥只从根 .env 注入，不写进 compose，也不进镜像。
+
+name: workloom
+
+services:
+
+  # ── TaskFlow ─────────────────────────────────────────────
+  postgres-taskflow:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: taskflow
+      POSTGRES_PASSWORD: ${POSTGRES_TASKFLOW_PASSWORD:-taskflow}
+      POSTGRES_DB: taskflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - taskflow_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taskflow -d taskflow"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis-taskflow:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api-taskflow:
+    build:
+      context: .
+      dockerfile: taskflow/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg://taskflow:${POSTGRES_TASKFLOW_PASSWORD:-taskflow}@postgres-taskflow:5432/taskflow
+      REDIS_URL: redis://redis-taskflow:6379/0
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?请在 .env 中设置 JWT_SECRET_KEY}
+      LLM_API_KEY: ${LLM_API_KEY:?请在 .env 中设置 LLM_API_KEY}
+      LLM_MODEL_ID: ${LLM_MODEL_ID:-deepseek-v4-pro}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.deepseek.com}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-30}
+      LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-2}
+      LLM_RETRY_BASE_DELAY: ${LLM_RETRY_BASE_DELAY:-0.5}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres-taskflow:
+        condition: service_healthy
+      redis-taskflow:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
+  # ── DocMind ──────────────────────────────────────────────
+  postgres-docmind:
+    # 官方 postgres 镜像没有 pgvector；这个镜像自带 vector 扩展。
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: docmind
+      POSTGRES_PASSWORD: ${POSTGRES_DOCMIND_PASSWORD:-docmind}
+      POSTGRES_DB: docmind
+    ports:
+      - "5433:5432"
+    volumes:
+      - docmind_pgdata:/var/lib/postgresql/data
+      # 只在数据卷首次为空时执行：启用 vector / pg_trgm。
+      - ./docmind/docker/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U docmind -d docmind"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis-docmind:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api-docmind:
+    build:
+      context: .
+      dockerfile: docmind/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg://docmind:${POSTGRES_DOCMIND_PASSWORD:-docmind}@postgres-docmind:5432/docmind
+      REDIS_URL: redis://redis-docmind:6379/0
+      # DocMind 只验签；必须和 TaskFlow 使用同一个 secret。
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?请在 .env 中设置 JWT_SECRET_KEY}
+      LLM_API_KEY: ${LLM_API_KEY:?请在 .env 中设置 LLM_API_KEY}
+      LLM_MODEL_ID: ${LLM_MODEL_ID:-deepseek-v4-pro}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.deepseek.com}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-30}
+      LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-2}
+      LLM_RETRY_BASE_DELAY: ${LLM_RETRY_BASE_DELAY:-0.5}
+      EMBED_MODEL_ID: ${EMBED_MODEL_ID:-text-embedding-v4}
+      EMBED_API_KEY: ${EMBED_API_KEY:?请在 .env 中设置 EMBED_API_KEY}
+      EMBED_BASE_URL: ${EMBED_BASE_URL:-}
+      EMBED_DIMENSION: ${EMBED_DIMENSION:-1024}
+      EMBED_MODEL_TYPE: ${EMBED_MODEL_TYPE:-dashscope}
+      CHUNK_SIZE: ${CHUNK_SIZE:-800}
+      CHUNK_OVERLAP: ${CHUNK_OVERLAP:-80}
+      TOP_K: ${TOP_K:-4}
+    ports:
+      - "8001:8000"
+    volumes:
+      # 上传文件落在这里；容器重建不丢。
+      - ./docmind/data:/app/docmind/data
+    depends_on:
+      postgres-docmind:
+        condition: service_healthy
+      redis-docmind:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  taskflow_pgdata:
+  docmind_pgdata:

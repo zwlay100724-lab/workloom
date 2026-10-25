@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shared"
+version = "0.1.0"
+description = "TaskFlow / DocMind 共用的基础设施包(config / db / llm / exceptions / security)"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.110",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.0",
+    "sqlmodel>=0.0.20",
+    "sqlalchemy>=2.0",
+    "redis>=5",
+    # langchain-openai 1.x 要求 openai<3；shared 的 AsyncOpenAI 用法也只验证过 1.x。
+    # 这里加上上界，避免只装 shared 时被解析到不兼容的 3.x。
+    "openai>=1.50,<3",
+    "pyjwt>=2.8",
+    # PasswordHash.recommended() 需要 argon2 后端；只装 pwdlib 会在
+    # import shared.security 时抛 HasherNotAvailable。
+    "pwdlib[argon2]>=0.2",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["shared*"]

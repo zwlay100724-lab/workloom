@@ -1,0 +1,17 @@
+# DocMind 评测依赖（可选，不参与运行时）
+#
+# 安装（在 docmind/ 目录下）：
+#     pip install -r requirements-eval.txt
+#
+# 注意：
+# - 运行时服务不需要本文件；只有 eval/ 下的 Ragas 评测脚本需要。
+# - ragas 0.4.3 会 import 已被 langchain-community 0.4 移除的
+#   `langchain_community.chat_models.vertexai`；eval/evaluate.py 顶部
+#   注入了一个占位模块绕过该 import（评测不使用 VertexAI）。
+# - 评测使用 ragas.metrics.collections 的现代 metrics + batch_score，
+#   不走 ragas.evaluate()（0.4.3 的 evaluate 只接受旧版 Metric）。
+-r requirements.txt
+
+ragas==0.4.3
+datasets==5.0.1
+numpy==2.2.6
