@@ -98,6 +98,8 @@ async def _search_linked_documents(
     每路只取所需份额，避免 N 个文档时把 top_k 放大 N 倍。
     """
     per_document_k = max(1, top_k // len(document_ids) + 1)
+    # return_exceptions=True：某份关联文档已在 DocMind 删除时跳过它，
+    # 用其它文档的结果继续，而不是让整次检索失败。
     batches = await asyncio.gather(
         *(
             docmind.search(
@@ -107,13 +109,22 @@ async def _search_linked_documents(
                 document_id=document_id,
             )
             for document_id in document_ids
-        )
+        ),
+        return_exceptions=True,
     )
-    merged = [
-        item
-        for batch in batches
-        for item in batch
-    ]
+
+    merged = []
+    for document_id, batch in zip(document_ids, batches):
+        if isinstance(batch, DocMindDocumentNotFoundError):
+            logger.warning(
+                "linked document no longer exists; skipping document_id=%s",
+                document_id,
+            )
+            continue
+        if isinstance(batch, BaseException):
+            # 非 404 的错误（例如 DocMind 整体不可用）仍然向上抛。
+            raise batch
+        merged.extend(batch)
     merged.sort(
         key=lambda item: item.get("score", 0.0),
         reverse=True,

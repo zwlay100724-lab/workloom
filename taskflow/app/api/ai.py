@@ -343,6 +343,12 @@ async def preview_tasks_from_document(
             top_k=20,
             document_id=payload.document_id,
         )
+    except DocMindDocumentNotFoundError as exc:
+        # get_document 和 search 之间文档被删除。
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="document not found",
+        ) from exc
     except DocMindUnavailableError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,

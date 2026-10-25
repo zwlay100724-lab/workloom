@@ -36,6 +36,10 @@ class RedisIndexQueue(IndexQueue):
         client = redis.Redis.from_url(
             settings.redis_url,
             decode_responses=True,
+            # 必须设连接超时：Redis 挂掉时上传接口要能快速触发
+            # 降级（退回进程内 BackgroundTasks），而不是卡住请求。
+            socket_connect_timeout=2.0,
+            socket_timeout=2.0,
         )
         return cls(client)
 

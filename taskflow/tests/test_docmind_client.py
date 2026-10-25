@@ -54,6 +54,20 @@ def test_search_sends_bearer_token_and_payload():
     }
 
 
+def test_search_404_raises_document_not_found():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(404)
+
+    with pytest.raises(DocMindDocumentNotFoundError):
+        asyncio.run(
+            _client(handler).search(
+                query="年假",
+                token="t",
+                document_id=7,
+            )
+        )
+
+
 def test_search_non_2xx_raises_unavailable():
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(500)

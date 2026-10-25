@@ -256,6 +256,21 @@ def test_preview_document_not_found_returns_404(
     assert fakes[1].calls == []
 
 
+def test_preview_document_deleted_during_search_returns_404(
+        client,
+        alice_headers,
+        fakes,
+):
+    # get_document 成功，但检索时文档已被删除。
+    fakes[0].search_error = DocMindDocumentNotFoundError("gone")
+
+    response = _preview(client, alice_headers)
+
+    assert response.status_code == 404
+    assert response.json()["error"]["message"] == "document not found"
+    assert fakes[1].calls == []
+
+
 def test_preview_document_not_indexed_returns_409(
         client,
         alice_headers,

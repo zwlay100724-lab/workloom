@@ -20,6 +20,7 @@ class FakeDocMindClient:
             document: dict | None = None,
             document_error: Exception | None = None,
             results_by_document: dict[int, list[dict]] | None = None,
+            errors_by_document: dict[int, Exception] | None = None,
     ) -> None:
         self.document = document or {
             "id": 7,
@@ -28,6 +29,8 @@ class FakeDocMindClient:
         }
         self.document_error = document_error
         self.results_by_document = results_by_document or {}
+        # 模拟"某份关联文档已在 DocMind 删除 / 服务不可用"。
+        self.errors_by_document = errors_by_document or {}
         self.document_calls: list[dict] = []
         self.search_calls: list[dict] = []
 
@@ -55,6 +58,8 @@ class FakeDocMindClient:
             "top_k": top_k,
             "document_id": document_id,
         })
+        if document_id in self.errors_by_document:
+            raise self.errors_by_document[document_id]
         return self.results_by_document.get(document_id, [])
 
 
@@ -302,3 +307,72 @@ def test_linked_only_without_links_returns_empty(
     assert response.status_code == 200
     assert response.json()["results"] == []
     assert fake_docmind.search_calls == []
+
+
+def test_linked_only_skips_document_deleted_in_docmind(
+        client,
+        alice_headers,
+        fake_docmind,
+):
+    fake_docmind.results_by_document = {
+        8: [_chunk(8, score=0.9, content="文档 8 的内容")],
+    }
+    # 7 号文档在 DocMind 已删除：只跳过它，不能拖垮整个检索。
+    fake_docmind.errors_by_document = {
+        7: DocMindDocumentNotFoundError("gone"),
+    }
+    task_id = _create_task(client, alice_headers)
+    _link(client, alice_headers, task_id, document_id=7)
+    _link(client, alice_headers, task_id, document_id=8)
+
+    response = client.get(
+        f"/tasks/{task_id}/knowledge",
+        headers=alice_headers,
+        params={"linked_only": True, "top_k": 5},
+    )
+
+    assert response.status_code == 200, response.text
+    contents = [item["content"] for item in response.json()["results"]]
+    assert contents == ["文档 8 的内容"]
+
+
+def test_linked_only_all_documents_missing_returns_empty(
+        client,
+        alice_headers,
+        fake_docmind,
+):
+    fake_docmind.errors_by_document = {
+        7: DocMindDocumentNotFoundError("gone"),
+    }
+    task_id = _create_task(client, alice_headers)
+    _link(client, alice_headers, task_id, document_id=7)
+
+    response = client.get(
+        f"/tasks/{task_id}/knowledge",
+        headers=alice_headers,
+        params={"linked_only": True},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["results"] == []
+
+
+def test_linked_only_still_502_when_docmind_is_down(
+        client,
+        alice_headers,
+        fake_docmind,
+):
+    fake_docmind.errors_by_document = {
+        7: DocMindUnavailableError("down"),
+    }
+    task_id = _create_task(client, alice_headers)
+    _link(client, alice_headers, task_id, document_id=7)
+
+    response = client.get(
+        f"/tasks/{task_id}/knowledge",
+        headers=alice_headers,
+        params={"linked_only": True},
+    )
+
+    # 服务整体不可用不该被当成"文档不存在"静默吞掉。
+    assert response.status_code == 502

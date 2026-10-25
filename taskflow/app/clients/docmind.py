@@ -107,6 +107,13 @@ class DocMindClient:
             json=payload,
         )
 
+        # 检索里指定了 document_id 时，DocMind 会先校验归属：
+        # 文档已被删除 / 不属于当前用户都会返回 404。
+        # 这和"服务不可用"是两种语义，调用方需要能区分。
+        if response.status_code == 404:
+            raise DocMindDocumentNotFoundError(
+                "document not found while searching"
+            )
         if response.status_code >= 400:
             logger.warning(
                 "docmind returned %s base_url=%s",

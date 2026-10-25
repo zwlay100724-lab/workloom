@@ -134,6 +134,27 @@ def test_queue_unavailable_is_wrapped(queue, client):
         queue.promote_due()
 
 
+def test_from_settings_sets_connection_timeouts(monkeypatch):
+    captured = {}
+
+    def fake_from_url(url, **kwargs):
+        captured["url"] = url
+        captured.update(kwargs)
+        return FakeRedis()
+
+    monkeypatch.setattr(
+        "app.queue.redis_queue.redis.Redis.from_url",
+        fake_from_url,
+    )
+
+    RedisIndexQueue.from_settings()
+
+    # Redis 不可达时必须快速失败，上传才能及时降级。
+    assert captured["socket_connect_timeout"] == 2.0
+    assert captured["socket_timeout"] == 2.0
+    assert captured["decode_responses"] is True
+
+
 def test_payload_contains_user_and_attempt(queue, client):
     queue.enqueue(IndexJob(document_id=7, user_id=3, attempt=1))
 

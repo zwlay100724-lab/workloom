@@ -8,6 +8,31 @@ WorkLoom 是一个双服务 AI 工作台：把任务管理和企业知识检索�
 
 > An AI workspace that connects task automation and enterprise knowledge retrieval.
 
+## 架构
+
+```mermaid
+flowchart LR
+    UI["前端工作台<br/>:3000"] -->|JWT| TF["TaskFlow API<br/>:8000"]
+    UI -->|JWT| DM["DocMind API<br/>:8001"]
+    TF -->|"HTTP + JWT<br/>检索 / 文档元数据"| DM
+
+    TF --> PG1[("Postgres<br/>users / tasks / task_documents")]
+    TF --> RC[("Redis<br/>任务列表缓存")]
+    TF --> LLM["LLM API"]
+
+    DM --> PG2[("Postgres + pgvector<br/>documents / chunks")]
+    DM --> EMB["Embedding API"]
+    DM --> LLM
+
+    DM -->|入队 IndexJob| Q[("Redis<br/>索引队列")]
+    W["Index Worker"] -->|BRPOP| Q
+    W --> PG2
+    W --> FS[("docmind/data<br/>上传文件")]
+```
+
+两个服务数据库独立、不建跨库外键，用户身份通过 JWT 的 `uid` claim 传递。
+索引是唯一的重后台任务，单独拆成 worker 进程，避免占用 API 请求线程。
+
 ## 快速启动
 
 ```bash
@@ -110,6 +135,21 @@ make workbench        # 静态服务 → http://localhost:3000
 - 从文档生成任务：**预览（可编辑）→ 确认创建**
 
 顶栏可以修改 TaskFlow / DocMind 的 API 地址，并用健康检查点显示两个服务的状态。
+
+三栏布局（左：任务，中：详情与知识，右：知识库）：
+
+```text
+┌────────────────────┬─────────────────────────────────┬────────────────────┐
+│ 任务                │ 完成登录接口联调                 │ plan.pdf   completed│
+│ ────────────        │ high · 截止 11-02 · 进行中       │  浏览片段 | 生成任务 │
+│ ● 完成登录接口联调   │ 来源引用: plan.pdf #0 [查看原文]  │ handbook.pdf pending│
+│ ○ 补充过期测试       │ 关联文档: plan.pdf [×]           │  上传文档            │
+│ ○ 更新员工手册       │ 相关知识（只看关联文档 ☐）        │                     │
+│ + 新建任务           │  · plan.pdf #0  0.912           │                     │
+└────────────────────┴─────────────────────────────────┴────────────────────┘
+```
+
+> 建议在本地跑通后补一张真实截图放到 `docs/`，简历和 README 里都很加分。
 
 跨域：两个后端通过 `CORS_ORIGINS`（默认
 `http://localhost:3000,http://127.0.0.1:3000`）允许工作台访问；
