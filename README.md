@@ -37,6 +37,9 @@ docker compose up -d redis-taskflow redis-docmind
 
 cd taskflow && ../.venv/bin/alembic upgrade head && ../.venv/bin/uvicorn app.main:app --reload
 cd docmind  && ../.venv/bin/alembic upgrade head && ../.venv/bin/uvicorn app.main:app --reload --port 8001
+
+# 另开一个终端：索引 worker（不起也能上传，会退回进程内 BackgroundTasks）
+make worker
 ```
 
 `.env` 已被 `.gitignore` 忽略，不要提交；`.env.example` 只放占位值，可以提交。
@@ -158,10 +161,35 @@ cd docmind
 
 完整的方法、真实结果和结论见 [docs/benchmarks.md](docs/benchmarks.md)。
 
+## 后台索引队列
+
+上传接口只负责落盘和建记录，真正的解析 / 切分 / Embedding 由独立的
+worker 进程从 Redis 队列里取任务执行：
+
+```bash
+make worker      # 本地直跑：cd docmind && python -m app.worker
+# compose 里由 worker-docmind 服务自动启动
+```
+
+- **入队**：`POST /documents/upload` 写入 `IndexJob(document_id, user_id)`；
+  文档立即可见为 `pending`，前端轮询 `GET /documents/{id}`。
+- **重试**：失败后按 `base * 2**attempt` 指数退避重投，默认最多 3 次；
+  最终失败时文档保持 `failed`，`error_message` 记录原因。
+- **崩溃恢复**：worker 每 60 秒扫描停在 `processing` 且超过
+  `INDEX_STALE_MINUTES` 的文档并重新入队——队列不保存 in-flight 任务，
+  数据库状态是兜底事实来源。
+- **降级**：Redis 不可用时上传接口退回进程内 `BackgroundTasks`，
+  本地开发没起 Redis 也能用；生产环境请确保 Redis 与 worker 在线。
+- **重新索引**：`POST /documents/{id}/reindex` 把文档重置为 `pending`
+  并重新入队，可用于失败重试或修改切分参数后重建。
+
+相关配置（`docmind/.env`）：`INDEX_MAX_ATTEMPTS`、
+`INDEX_RETRY_BASE_DELAY_SECONDS`、`INDEX_STALE_MINUTES`。
+
 ## 可观测性与索引
 
-- 上传接口立即返回 `pending`，解析/切分/Embedding 在后台执行；用
-  `GET /documents/{id}` 轮询状态。
+- 上传接口立即返回 `pending`，索引任务进入 Redis 队列，由 worker 执行；
+  用 `GET /documents/{id}` 轮询状态。
 - 索引替换是原子操作：删旧 chunk + 写新 chunk + 更新状态在同一个事务里；
   `document_chunks(document_id, chunk_index)` 有唯一约束，重跑索引不会重复写入。
 - `document_chunks` 已建 HNSW 向量索引、GIN 全文索引、GIN trigram 索引和

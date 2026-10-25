@@ -40,5 +40,17 @@ class Settings(BaseConfig):
     CHUNK_OVERLAP: int = 80
     TOP_K: int = 5
 
+    # ── 后台索引队列 ──────────────────────────────
+    # 用 REDIS_URL 指向的 Redis 做队列；API 入队、worker 出队。
+    INDEX_QUEUE_NAME: str = "docmind:index_queue"
+    # 失败后最多尝试几次（含第一次）。
+    INDEX_MAX_ATTEMPTS: int = 3
+    # 指数退避的基数：第 n 次重试等待 base * 2**n 秒。
+    INDEX_RETRY_BASE_DELAY_SECONDS: float = 5.0
+    # BRPOP 的阻塞秒数；决定 worker 检查延迟队列的频率。
+    INDEX_WORKER_BLOCK_SECONDS: int = 5
+    # 文档停在 processing 超过多少分钟视为 worker 崩溃遗留，重新入队。
+    INDEX_STALE_MINUTES: int = 10
+
 
 settings = Settings()

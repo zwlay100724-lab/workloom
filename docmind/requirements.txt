@@ -24,12 +24,13 @@ pydantic==2.13.4
 pydantic-settings==2.15.0  # Settings 读 .env
 python-dotenv==1.2.2       # main.py 顶部 load_dotenv()
 
-# ── 数据库 ─────────────────────────────────
+# ── 数据库 / 队列 ──────────────────────────
 SQLAlchemy==2.0.52
 sqlmodel==0.0.39
 psycopg[binary]==3.3.4     # DATABASE_URL 是 postgresql+psycopg://
 alembic==1.19.1
 pgvector==0.5.0            # document_chunks.embedding 的 Vector 类型
+redis==8.1.0               # 后台索引队列（与 TaskFlow 使用同一版本）
 
 # ── RAG：加载 / 切分 / 检索 / Agent ────────
 langchain-core==1.6.0

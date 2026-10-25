@@ -145,6 +145,44 @@ services:
       retries: 5
       start_period: 20s
 
+  # 独立的索引 worker：从 Redis 队列取任务，执行解析 / 切分 / Embedding。
+  # 与 API 共用同一个镜像和上传目录，但进程分离——API 不承担重活，
+  # worker 重启也不会影响 API。
+  worker-docmind:
+    build:
+      context: .
+      dockerfile: docmind/Dockerfile
+    command: ["python", "-m", "app.worker"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://docmind:${POSTGRES_DOCMIND_PASSWORD:-docmind}@postgres-docmind:5432/docmind
+      REDIS_URL: redis://redis-docmind:6379/0
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?请在 .env 中设置 JWT_SECRET_KEY}
+      LLM_API_KEY: ${LLM_API_KEY:?请在 .env 中设置 LLM_API_KEY}
+      LLM_MODEL_ID: ${LLM_MODEL_ID:-deepseek-v4-pro}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.deepseek.com}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-30}
+      LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-2}
+      LLM_RETRY_BASE_DELAY: ${LLM_RETRY_BASE_DELAY:-0.5}
+      EMBED_MODEL_ID: ${EMBED_MODEL_ID:-text-embedding-v4}
+      EMBED_API_KEY: ${EMBED_API_KEY:?请在 .env 中设置 EMBED_API_KEY}
+      EMBED_BASE_URL: ${EMBED_BASE_URL:-}
+      EMBED_DIMENSION: ${EMBED_DIMENSION:-1024}
+      EMBED_MODEL_TYPE: ${EMBED_MODEL_TYPE:-dashscope}
+      CHUNK_SIZE: ${CHUNK_SIZE:-800}
+      CHUNK_OVERLAP: ${CHUNK_OVERLAP:-80}
+      TOP_K: ${TOP_K:-4}
+      INDEX_MAX_ATTEMPTS: ${INDEX_MAX_ATTEMPTS:-3}
+      INDEX_RETRY_BASE_DELAY_SECONDS: ${INDEX_RETRY_BASE_DELAY_SECONDS:-5}
+      INDEX_STALE_MINUTES: ${INDEX_STALE_MINUTES:-10}
+    volumes:
+      # 必须和 api-docmind 挂同一个目录：worker 要读取上传的原文件。
+      - ./docmind/data:/app/docmind/data
+    depends_on:
+      postgres-docmind:
+        condition: service_healthy
+      redis-docmind:
+        condition: service_healthy
+
 volumes:
   taskflow_pgdata:
   docmind_pgdata:

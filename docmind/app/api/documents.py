@@ -1,3 +1,4 @@
+import logging
 import uuid
 from pathlib import Path
 from typing import Annotated, BinaryIO
@@ -18,6 +19,8 @@ from shared.db.database import get_session
 from sqlmodel import Session
 
 from app.api.deps import CurrentUserIdDep
+from app.queue import get_index_queue
+from app.queue.base import IndexJob, IndexQueue, QueueUnavailableError
 from app.schemas.document import (
     DocumentChunkListResponse,
     DocumentChunkResponse,
@@ -28,6 +31,10 @@ from app.services.document_service import DocumentService
 from app.services.indexing import index_document
 
 router = APIRouter(prefix="/documents", tags=["文档管理"])
+
+logger = logging.getLogger(__name__)
+
+IndexQueueDep = Annotated[IndexQueue, Depends(get_index_queue)]
 
 # 用绝对路径：uvicorn 的 cwd 可能是仓库根、docmind/ 或容器里的任意目录，
 # 相对路径 "data" 会随启动方式漂移，导致上传和读取指向不同目录。
@@ -130,18 +137,45 @@ def save_upload(source: BinaryIO, destination: Path) -> bytes:
     return head
 
 
+def _enqueue_index(
+        queue: IndexQueue,
+        background_tasks: BackgroundTasks,
+        *,
+        document_id: int,
+        user_id: int,
+        bind,
+) -> None:
+    """把文档放进索引队列；队列不可用时退回进程内后台任务。
+
+    退回机制保证本地没起 Redis 也能上传文档；生产环境 Redis 正常时
+    一律走独立 worker，API 进程不承担解析 / Embedding 的负载。
+    """
+    try:
+        queue.enqueue(IndexJob(
+            document_id=document_id,
+            user_id=user_id,
+        ))
+    except QueueUnavailableError:
+        logger.warning(
+            "index queue unavailable; falling back to in-process indexing "
+            "document_id=%s",
+            document_id,
+        )
+        background_tasks.add_task(index_document, document_id, bind)
+
+
 @router.post("/upload", response_model=DocumentResponse)
 def upload_document(
         background_tasks: BackgroundTasks,
         current_user_id: CurrentUserIdDep,
+        index_queue: IndexQueueDep,
         file: UploadFile = File(...),
         session: Session = Depends(get_session),
 ):
-    """上传文档，立即返回 pending，解析/切片/向量化在后台执行。
+    """上传文档，立即返回 pending，索引任务进入后台队列。
 
-    后台任务使用 session.get_bind() 重新创建 Session：
-    - 请求级 session 在响应后关闭，不能复用；
-    - 测试里 dependency override 到独立测试库时，后台任务也会写同一个库。
+    索引由独立的 worker 进程执行（python -m app.worker），不再占用
+    API 进程；Redis 不可用时退回进程内 BackgroundTasks。
     """
     original_name = sanitize_filename(file.filename or "")
     file_type = detect_file_type(original_name)
@@ -172,10 +206,12 @@ def upload_document(
         file_path.unlink(missing_ok=True)
         raise
 
-    background_tasks.add_task(
-        index_document,
-        doc.id,
-        session.get_bind(),
+    _enqueue_index(
+        index_queue,
+        background_tasks,
+        document_id=doc.id,
+        user_id=current_user_id,
+        bind=session.get_bind(),
     )
     return doc
 
@@ -204,6 +240,47 @@ def get_document(
         doc_id,
         current_user_id,
     )
+
+
+@router.post(
+    "/{doc_id}/reindex",
+    response_model=DocumentResponse,
+)
+def reindex_document(
+    doc_id: int,
+    background_tasks: BackgroundTasks,
+    current_user_id: CurrentUserIdDep,
+    index_queue: IndexQueueDep,
+    session: Session = Depends(get_session),
+):
+    """重新索引文档：失败重试，或索引参数变更后重建。
+
+    已完成文档也允许重建：process_pdf 会原子替换旧片段，
+    不会出现"删了旧的、新的没写进去"的中间状态。
+    """
+    service = DocumentService(session)
+    document = service.get_owned_document(doc_id, current_user_id)
+
+    # 正在索引时重复触发只会浪费 Embedding 调用。
+    if document.status == "processing":
+        raise HTTPException(
+            status_code=409,
+            detail="document is being indexed",
+        )
+
+    document = service.update_status(
+        doc_id,
+        "pending",
+        clear_error=True,
+    )
+    _enqueue_index(
+        index_queue,
+        background_tasks,
+        document_id=doc_id,
+        user_id=current_user_id,
+        bind=session.get_bind(),
+    )
+    return document
 
 
 @router.get(

@@ -45,7 +45,8 @@ class DocumentService:
             doc_id: int,
             status: str,
             page_count: int | None = None,
-            error_message: str | None = None
+            error_message: str | None = None,
+            clear_error: bool = False,
     ) -> Document:
         """更新文档处理状态"""
         doc = self.session.get(Document, doc_id)
@@ -55,7 +56,9 @@ class DocumentService:
         doc.updated_at = datetime.utcnow()
         if page_count is not None:
             doc.page_count = page_count
-        if error_message is not None:
+        if clear_error:
+            doc.error_message = None
+        elif error_message is not None:
             doc.error_message = error_message
         self.session.add(doc)
         self.session.commit()
