@@ -146,6 +146,10 @@ def _task_to_dict(task: Task | dict) -> dict:
             if task.deadline
             else None
         ),
+        # 来源引用：让模型在回答里能说清任务依据哪份文档。
+        "source_document_id": task.source_document_id,
+        "source_filename": task.source_filename,
+        "source_chunk_index": task.source_chunk_index,
     }
 
 

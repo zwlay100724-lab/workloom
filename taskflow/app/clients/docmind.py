@@ -21,6 +21,10 @@ class DocMindUnavailableError(Exception):
     """DocMind 不可达、超时，或返回了非 2xx 响应。"""
 
 
+class DocMindDocumentNotFoundError(Exception):
+    """文档不存在，或不属于当前用户（DocMind 统一返回 404）。"""
+
+
 class DocMindClient:
     def __init__(
             self,
@@ -37,6 +41,42 @@ class DocMindClient:
         )
         # transport 只给测试注入 ASGI / MockTransport 用，运行时为 None。
         self._transport = transport
+
+    async def _request(
+            self,
+            method: str,
+            path: str,
+            *,
+            token: str,
+            json: dict | None = None,
+    ) -> httpx.Response:
+        """发请求并把网络层错误统一成 DocMindUnavailableError。
+
+        非 2xx 不在这里处理：404 在 get_document 里有独立语义，
+        由具体方法按状态码区分。
+        """
+        try:
+            async with httpx.AsyncClient(
+                    base_url=self.base_url,
+                    timeout=self.timeout,
+                    transport=self._transport,
+            ) as client:
+                return await client.request(
+                    method,
+                    path,
+                    json=json,
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+        except httpx.HTTPError as exc:
+            logger.warning(
+                "docmind request failed base_url=%s path=%s error=%s",
+                self.base_url,
+                path,
+                exc,
+            )
+            raise DocMindUnavailableError(
+                f"DocMind request failed: {exc}"
+            ) from exc
 
     async def search(
             self,
@@ -60,26 +100,12 @@ class DocMindClient:
         if document_id is not None:
             payload["document_id"] = document_id
 
-        try:
-            async with httpx.AsyncClient(
-                    base_url=self.base_url,
-                    timeout=self.timeout,
-                    transport=self._transport,
-            ) as client:
-                response = await client.post(
-                    "/retrieval/search",
-                    json=payload,
-                    headers={"Authorization": f"Bearer {token}"},
-                )
-        except httpx.HTTPError as exc:
-            logger.warning(
-                "docmind request failed base_url=%s error=%s",
-                self.base_url,
-                exc,
-            )
-            raise DocMindUnavailableError(
-                f"DocMind request failed: {exc}"
-            ) from exc
+        response = await self._request(
+            "POST",
+            "/retrieval/search",
+            token=token,
+            json=payload,
+        )
 
         if response.status_code >= 400:
             logger.warning(
@@ -92,6 +118,39 @@ class DocMindClient:
             )
 
         return response.json().get("results", [])
+
+    async def get_document(
+            self,
+            *,
+            document_id: int,
+            token: str,
+    ) -> dict:
+        """取文档元数据（文件名、索引状态等）。
+
+        DocMind 对"不存在"和"不属于当前用户"统一返回 404，
+        所以这里不区分两者——调用方也统一返回 404。
+        """
+        response = await self._request(
+            "GET",
+            f"/documents/{document_id}",
+            token=token,
+        )
+
+        if response.status_code == 404:
+            raise DocMindDocumentNotFoundError(
+                f"document {document_id} not found"
+            )
+        if response.status_code >= 400:
+            logger.warning(
+                "docmind returned %s base_url=%s",
+                response.status_code,
+                self.base_url,
+            )
+            raise DocMindUnavailableError(
+                f"DocMind returned {response.status_code}"
+            )
+
+        return response.json()
 
 
 def get_docmind_client() -> DocMindClient:

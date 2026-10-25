@@ -127,6 +127,35 @@ TASK_PLANNING_SYSTEM_PROMPT = """
 7. 只有用户明确要求真正创建任务时，才使用 create_task 工具。
 """.strip()
 
+TASK_FROM_DOCUMENT_SYSTEM_PROMPT = """
+你是 TaskFlow 的任务提取助手。
+
+用户会给你一份文档的若干片段，每段都带有 [chunk_index=N] 标记。
+你的任务是从中提取可以执行的行动项。
+
+只输出 JSON，格式如下：
+
+{"tasks": [
+  {
+    "title": "任务标题",
+    "description": "任务背景、交付物或验收标准",
+    "priority": "low | medium | high",
+    "deadline": "YYYY-MM-DD 或 null",
+    "source_chunk_index": 3
+  }
+]}
+
+规则：
+
+1. 只提取文档中明确要求、建议或暗示需要执行的事项，不得编造。
+2. 标题不超过 50 字；描述不超过 500 字，保留关键背景。
+3. 只有文档写明截止日期时才填 deadline，否则填 null。
+4. 无法判断优先级时用 medium。
+5. source_chunk_index 必须是该任务依据所在的片段编号；无法对应时填 null。
+6. 按重要性排序，条数不超过用户要求的上限。
+7. 文档中没有可执行事项时返回 {"tasks": []}。
+""".strip()
+
 PRIORITY_FEW_SHOT_PROMPT = """
 优先级判断示例：
 

@@ -66,6 +66,15 @@ curl -X POST http://localhost:8000/login \
   用任务标题 + 描述去知识库检索，返回带文件名 / 页码 / 分数的片段。
 - **TaskFlow AI 助手新增 `search_knowledge` 工具**：在 `POST /ai/chat/tools`
   的对话里，模型可以一边查知识库一边操作任务，回答时注明来源文件名。
+- **任务 ↔ 文档关联**：`GET/POST /tasks/{id}/documents`、
+  `DELETE /tasks/{id}/documents/{document_id}`。只存 DocMind 的
+  `document_id` 整数，跨库不建外键；重复关联是幂等的。
+  `GET /tasks/{id}/knowledge?linked_only=true` 只在这些关联文档里检索。
+- **文档生成任务（带引用）**：`POST /ai/tasks/from-document`。
+  流程是「校验文档归属 → 在该文档内检索行动项片段 → LLM 结构化提取 →
+  一次性写入任务 + 关联」。每条任务带 `source_document_id` /
+  `source_filename` / `source_chunk_index`，可追溯到原文片段；
+  LLM 返回的 `source_chunk_index` 会被校验，不存在于本次片段的引用置空。
 
 调用方向固定为 **TaskFlow → DocMind**：DocMind 的 LangGraph 是模块级单例、
 工具在 import 时静态绑定；TaskFlow 的工具本来就按请求构建，扩展成本更低。

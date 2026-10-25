@@ -34,6 +34,7 @@ load_dotenv()
 import app.models.conversation  # noqa: F401
 import app.models.llm_usage  # noqa: F401
 import app.models.task  # noqa: F401
+import app.models.task_document  # noqa: F401
 import app.models.user  # noqa: F401
 from shared.db.base import Base
 

@@ -1,6 +1,12 @@
 from app.core.exceptions import TaskForbiddenError, TaskNotFoundError
 from app.models.task import Task
-from app.repositories import task_cache_repository, task_repository
+from app.models.task_document import TaskDocument
+from app.repositories import (
+    task_cache_repository,
+    task_document_repository,
+    task_repository,
+)
+from app.schemas.generated import GeneratedTaskSpec
 from app.schemas.task import (
     TaskCreate,
     TaskPatch,
@@ -109,10 +115,125 @@ def delete_task(session: Session, task_id: int, owner_id: int):
     db_task=_get_owned_task_or_raise(session, task_id, owner_id)
     if db_task is None:
         return False
+    # 先删关联：task_documents.task_id 有外键，Postgres 下不先删会被拒绝。
+    task_document_repository.delete_links_for_task(session, task_id)
     task_repository.delete_task(session, db_task)
     session.commit()
     task_cache_repository.invalidate_task_list_cache(
         owner_id=owner_id
     )
     return True
+
+
+# ── 任务 ↔ 文档关联 ──────────────────────────────────────────
+
+def list_task_documents(
+        session: Session,
+        task_id: int,
+        owner_id: int,
+) -> list[TaskDocument]:
+    _get_owned_task_or_raise(session, task_id, owner_id)
+    return task_document_repository.list_for_task(session, task_id)
+
+
+def link_document(
+        session: Session,
+        *,
+        task_id: int,
+        owner_id: int,
+        document_id: int,
+        filename: str | None,
+) -> TaskDocument:
+    """关联文档；重复调用是幂等的，只刷新文件名快照。"""
+    _get_owned_task_or_raise(session, task_id, owner_id)
+
+    link = task_document_repository.get_link(
+        session,
+        task_id,
+        document_id,
+    )
+    if link is None:
+        link = task_document_repository.add_link(
+            session,
+            task_id=task_id,
+            document_id=document_id,
+            filename=filename,
+        )
+        session.commit()
+        session.refresh(link)
+        return link
+
+    if filename is not None and link.filename != filename:
+        link.filename = filename
+        session.add(link)
+        session.commit()
+        session.refresh(link)
+    return link
+
+
+def unlink_document(
+        session: Session,
+        *,
+        task_id: int,
+        owner_id: int,
+        document_id: int,
+) -> None:
+    """解除关联；本来就没关联时也视为成功（幂等）。"""
+    _get_owned_task_or_raise(session, task_id, owner_id)
+    if task_document_repository.delete_link(
+            session,
+            task_id,
+            document_id,
+    ):
+        session.commit()
+
+
+def create_generated_tasks(
+        session: Session,
+        *,
+        owner_id: int,
+        specs: list[GeneratedTaskSpec],
+        document_id: int,
+        filename: str | None,
+) -> list[Task]:
+    """把「文档 → 任务」的结果一次性落库。
+
+    只在最后 commit 一次：要么任务和关联全部写入，要么整体回滚，
+    不会留下"任务建了一半、引用缺失"的中间状态。
+    """
+    tasks = [
+        Task(
+            title=spec.title,
+            description=spec.description,
+            priority=spec.priority,
+            deadline=spec.deadline,
+            owner_id=owner_id,
+            source_document_id=document_id,
+            source_filename=filename,
+            source_chunk_index=spec.source_chunk_index,
+        )
+        for spec in specs
+    ]
+    if not tasks:
+        return []
+
+    for task in tasks:
+        session.add(task)
+    # flush 拿到自增主键，关联表才能引用；此时还没提交。
+    session.flush()
+
+    for task in tasks:
+        task_document_repository.add_link(
+            session,
+            task_id=task.id,
+            document_id=document_id,
+            filename=filename,
+        )
+
+    session.commit()
+    for task in tasks:
+        session.refresh(task)
+        task_cache_repository.clear_missing_task_cache(task.id)
+    task_cache_repository.invalidate_task_list_cache(owner_id=owner_id)
+    return tasks
 

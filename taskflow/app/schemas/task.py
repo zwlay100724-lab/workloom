@@ -28,12 +28,19 @@ class TaskCreate(BaseModel):
 #用于创建response_model，因为客户端输入和服务端响应的数据格式有时会不一样
 #FastAPI 会按照 response_model 对输出进行验证、文档生成以及过滤，只返回响应模型声明的数据结构。
 class TaskResponse(BaseModel):
+    # from_attributes：允许直接用 ORM Task 对象构造（生成任务接口要这么做）。
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     title: str
     description: str | None
     done: bool
     priority: str
     deadline: date | None
+    # 来源引用：只有「文档生成任务」创建的 task 才有值。
+    source_document_id: int | None = None
+    source_filename: str | None = None
+    source_chunk_index: int | None = None
 #TaskCreate控制输入，TaskResponse控制输出
 
 class TaskUpdate(BaseModel):

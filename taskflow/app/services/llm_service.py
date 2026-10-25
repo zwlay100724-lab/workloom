@@ -21,6 +21,7 @@ from app.llm.chains import (
 from app.llm.client import LLMResult, get_chat_model, llm_client
 from app.llm.message_converters import load_history_as_langchain_messages
 from app.llm.prompts import (
+    TASK_FROM_DOCUMENT_SYSTEM_PROMPT,
     TASK_PLANNING_SYSTEM_PROMPT,
     TASKFLOW_TOOL_SYSTEM_PROMPT,
     build_task_extraction_system_prompt,
@@ -33,6 +34,7 @@ from app.schemas.ai import (
     TaskIntent,
     TaskPlan,
 )
+from app.schemas.generated import GeneratedTaskList, GeneratedTaskSpec
 from app.services.conversation_service import (
     ConversationService,
     get_conversation_service,
@@ -489,6 +491,89 @@ class LLMService:
             result.content
         )
         return plan
+
+    async def extract_tasks_from_document(
+        self,
+        *,
+        filename: str,
+        chunks: list[dict],
+        user_id: int,
+        instruction: str | None = None,
+        max_tasks: int = 5,
+    ) -> list[GeneratedTaskSpec]:
+        """从文档片段中提取可执行任务（只生成，不落库）。
+
+        片段来自 DocMind 的纯检索接口，每段带 chunk_index。
+        模型输出仍是不可信数据：先过 Pydantic，再校验它引用的
+        chunk_index 确实出现在本次片段里，防止幻觉引用。
+        """
+        context = "\n\n".join(
+            f"[chunk_index={chunk['chunk_index']}] {chunk['content']}"
+            for chunk in chunks
+        )
+        messages = [
+            {
+                "role": "system",
+                "content": TASK_FROM_DOCUMENT_SYSTEM_PROMPT,
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"文件名：{filename}\n"
+                    f"最多提取 {max_tasks} 条任务。\n"
+                    f"额外要求：{instruction or '无'}\n\n"
+                    f"文档片段：\n{context}"
+                ),
+            },
+        ]
+
+        # 和 extract_task 一样重试一次：第一次要求 JSON 模式，
+        # 校验失败时第二次不带 response_format（部分模型 JSON 模式
+        # 下会截断或加多余包裹）。走统一封装的 generate()，照常记账。
+        data: GeneratedTaskList | None = None
+        last_error: ValidationError | None = None
+        for attempt in range(2):
+            result, _usage = await generate(
+                messages=messages,
+                user_id=user_id,
+                session=self.session,
+                temperature=0.2,
+                max_tokens=1500,
+                response_format=(
+                    {"type": "json_object"}
+                    if attempt == 0
+                    else None
+                ),
+            )
+            try:
+                data = GeneratedTaskList.model_validate_json(
+                    result.content
+                )
+                break
+            except ValidationError as exc:
+                last_error = exc
+
+        if data is None:
+            raise LLMStructuredOutputError(
+                "LLM returned invalid task data"
+            ) from last_error
+
+        # 只接受本次片段里真实存在的 chunk_index；其余一律置空。
+        valid_chunk_indices = {
+            chunk["chunk_index"]
+            for chunk in chunks
+        }
+        specs: list[GeneratedTaskSpec] = []
+        for spec in data.tasks[:max_tasks]:
+            title = spec.title.strip()
+            # 纯空白标题不是可执行任务，直接丢弃。
+            if not title:
+                continue
+            updates = {"title": title}
+            if spec.source_chunk_index not in valid_chunk_indices:
+                updates["source_chunk_index"] = None
+            specs.append(spec.model_copy(update=updates))
+        return specs
 
     async def chat_with_tools(
         self,

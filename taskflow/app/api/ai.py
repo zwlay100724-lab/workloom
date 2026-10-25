@@ -1,8 +1,9 @@
 import asyncio
 import json
 import logging
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from shared.exceptions import (
     LLMError,
@@ -14,7 +15,13 @@ from shared.exceptions import (
 # 使用你第一阶段已经存在的 CurrentUserDep。
 # 如果你的实际路径不是 app.api.deps，
 # 保留你项目原来的 import 路径即可。
-from app.api.deps import AccessTokenDep, CurrentUserDep
+from app.api.deps import AccessTokenDep, CurrentUserDep, SessionDep
+from app.clients.docmind import (
+    DocMindClient,
+    DocMindDocumentNotFoundError,
+    DocMindUnavailableError,
+    get_docmind_client,
+)
 from app.schemas.ai import (
     ChatRequest,
     ChatResponse,
@@ -26,6 +33,12 @@ from app.schemas.ai import (
     ToolChatRequest,
     ToolChatResponse,
 )
+from app.schemas.generated import (
+    GenerateTasksRequest,
+    GenerateTasksResponse,
+)
+from app.schemas.task import TaskResponse
+from app.services import task_service
 from app.services.llm_service import LLMServiceDep
 
 router = APIRouter(
@@ -252,4 +265,101 @@ async def parse_intent_structured(
     return await llm_service.parse_task_intent_structured(
         user_input=request.message,
         user_id=user_id,
+    )
+
+
+# 没传 instruction 时用它做检索 query：把行动项类片段召回出来。
+DEFAULT_TASK_EXTRACTION_QUERY = (
+    "提取文档中的行动项、待办事项、责任人、截止时间和交付要求"
+)
+
+
+@router.post(
+    "/tasks/from-document",
+    response_model=GenerateTasksResponse,
+)
+async def generate_tasks_from_document(
+    payload: GenerateTasksRequest,
+    current_user: CurrentUserDep,
+    access_token: AccessTokenDep,
+    session: SessionDep,
+    llm_service: LLMServiceDep,
+    docmind: Annotated[DocMindClient, Depends(get_docmind_client)],
+) -> GenerateTasksResponse:
+    """从 DocMind 文档生成任务，并写入来源引用。
+
+    完整闭环：
+      1. 校验文档归属（DocMind 404 即不存在或不是你的）；
+      2. 在该文档范围内检索行动项相关片段；
+      3. LLM 结构化提取任务（每条的 source_chunk_index 可追溯）；
+      4. 一次性写入任务 + task_documents 关联，全部带来源文件引用。
+    """
+    try:
+        document = await docmind.get_document(
+            document_id=payload.document_id,
+            token=access_token,
+        )
+    except DocMindDocumentNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="document not found",
+        ) from exc
+    except DocMindUnavailableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="knowledge service unavailable",
+        ) from exc
+
+    # 还在解析 / 索引中的文档没有可用片段，先拒绝而不是生成空任务。
+    if document.get("status") != "completed":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="document is not indexed yet",
+        )
+
+    filename = document.get("filename")
+    query = payload.instruction or DEFAULT_TASK_EXTRACTION_QUERY
+
+    try:
+        chunks = await docmind.search(
+            query=query,
+            token=access_token,
+            top_k=20,
+            document_id=payload.document_id,
+        )
+    except DocMindUnavailableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="knowledge service unavailable",
+        ) from exc
+
+    if not chunks:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="document has no indexed content",
+        )
+
+    specs = await llm_service.extract_tasks_from_document(
+        filename=filename or f"document-{payload.document_id}",
+        chunks=chunks,
+        user_id=current_user.id,
+        instruction=payload.instruction,
+        max_tasks=payload.max_tasks,
+    )
+
+    tasks = task_service.create_generated_tasks(
+        session=session,
+        owner_id=current_user.id,
+        specs=specs,
+        document_id=payload.document_id,
+        filename=filename,
+    )
+
+    return GenerateTasksResponse(
+        document_id=payload.document_id,
+        filename=filename,
+        tasks=[
+            TaskResponse.model_validate(task)
+            for task in tasks
+        ],
     )

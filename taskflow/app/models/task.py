@@ -19,3 +19,10 @@ class Task(SQLModel, table=True):#table=True；告诉SQLModel这个类不只是�
         foreign_key="users.id",
         index=True,
     )
+
+    # ── 来源引用（「文档 → 任务」生成时写入）──
+    # 只存 DocMind 的 document_id：两个服务数据库独立，不建跨库外键。
+    # filename 是生成时的快照，展示引用时不必再回查 DocMind。
+    source_document_id: int | None = Field(default=None, index=True)
+    source_filename: str | None = Field(default=None)
+    source_chunk_index: int | None = Field(default=None)
