@@ -59,6 +59,8 @@ services:
       LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-30}
       LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-2}
       LLM_RETRY_BASE_DELAY: ${LLM_RETRY_BASE_DELAY:-0.5}
+      # TaskFlow → DocMind 的纯检索接口（任务相关知识 / AI 助手知识库工具）。
+      DOCMIND_BASE_URL: ${DOCMIND_BASE_URL:-http://api-docmind:8001}
     ports:
       - "8000:8000"
     depends_on:

@@ -495,6 +495,7 @@ class LLMService:
         *,
         message: str,
         user_id: int,
+        access_token: str | None = None,
         max_rounds: int = 5,
     ) -> str:
         """带工具调用的多轮对话(LangChain ChatModel + StructuredTool)。
@@ -509,6 +510,9 @@ class LLMService:
         tools = build_task_tools(
             session=self.session,
             owner_id=user_id,
+            # 有 token 才会挂上知识库检索工具；没 token 的调用方
+            # （例如内部测试）仍然只拿到任务 CRUD 工具。
+            access_token=access_token,
         )
         tool_by_name = {
             tool.name: tool

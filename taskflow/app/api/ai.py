@@ -14,7 +14,7 @@ from shared.exceptions import (
 # 使用你第一阶段已经存在的 CurrentUserDep。
 # 如果你的实际路径不是 app.api.deps，
 # 保留你项目原来的 import 路径即可。
-from app.api.deps import CurrentUserDep
+from app.api.deps import AccessTokenDep, CurrentUserDep
 from app.schemas.ai import (
     ChatRequest,
     ChatResponse,
@@ -170,12 +170,15 @@ async def structured_chat(
 async def chat_with_tools(
     payload: ToolChatRequest,
     current_user: CurrentUserDep,
+    access_token: AccessTokenDep,
     llm_service: LLMServiceDep,
 ) -> ToolChatResponse:
 
     answer = await llm_service.chat_with_tools(
         message=payload.message,
         user_id=current_user.id,
+        # 原样透传给 DocMind：知识库检索工具需要它来维持用户身份。
+        access_token=access_token,
     )
 
     return ToolChatResponse(

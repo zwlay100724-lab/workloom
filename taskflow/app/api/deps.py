@@ -45,7 +45,32 @@ def get_current_user(
     return user
 
 
+def get_access_token(
+    credentials: Annotated[
+        HTTPAuthorizationCredentials | None,
+        Depends(bearer_scheme),
+    ],
+) -> str:
+    """取出原始 Bearer token。
+
+    跨服务调用（TaskFlow → DocMind）时原样透传：DocMind 和 TaskFlow
+    共用同一个 JWT secret，验签后仍能拿到同一个 uid，身份不会断。
+    """
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return credentials.credentials
+
+
 CurrentUserDep = Annotated[
     User,
     Depends(get_current_user),
+]
+
+AccessTokenDep = Annotated[
+    str,
+    Depends(get_access_token),
 ]

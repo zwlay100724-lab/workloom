@@ -6,6 +6,7 @@ LangChain Tools 定义层
 from datetime import date
 from typing import Literal
 
+from app.clients.docmind import DocMindClient, DocMindUnavailableError
 from app.core.exceptions import (
     TaskForbiddenError,
     TaskNotFoundError,
@@ -107,6 +108,24 @@ class DeleteTaskInput(BaseModel):
     )
 
 
+class SearchKnowledgeInput(BaseModel):
+    """知识库检索的参数"""
+    query: str = Field(
+        ...,
+        min_length=1,
+        description=(
+            "用于检索知识库的问题或关键词。"
+            "把用户的完整问题写进来，不要只写单个词。"
+        ),
+    )
+    top_k: int = Field(
+        default=3,
+        ge=1,
+        le=10,
+        description="返回多少个最相关的文档片段，默认 3，最多 10。",
+    )
+
+
 # ============================================================
 # 2. 序列化辅助
 #    查询结果可能是缓存(dict)或数据库对象(Task)，
@@ -142,8 +161,15 @@ def build_task_tools(
     *,
     session: Session,
     owner_id: int,
+    access_token: str | None = None,
+    docmind_client: DocMindClient | None = None,
 ) -> list[StructuredTool]:
-    """把 TaskService 的业务能力包装成绑定当前会话的工具列表。"""
+    """把 TaskService 的业务能力包装成绑定当前会话的工具列表。
+
+    access_token 不为空时，额外挂上 search_knowledge 工具：它通过 HTTP
+    调 DocMind 的纯检索接口，token 原样透传以维持用户隔离。
+    docmind_client 只用于测试注入，运行时按配置新建。
+    """
 
     def get_tasks(
         done: bool | None = None,
@@ -324,12 +350,62 @@ def build_task_tools(
         args_schema=DeleteTaskInput,
     )
 
-    return [
+    tools = [
         get_tasks_tool,
         create_task_tool,
         update_task_tool,
         delete_task_tool,
     ]
+
+    # 知识库工具依赖用户 token，只有调用方提供了才挂上；
+    # 这样内部调用（例如只测任务 CRUD）不会被迫依赖 DocMind。
+    if access_token:
+        client = docmind_client or DocMindClient()
+
+        async def search_knowledge(
+            query: str,
+            top_k: int = 3,
+        ) -> dict:
+            """检索企业知识库，返回相关文档片段（不含生成答案）。"""
+            try:
+                results = await client.search(
+                    query=query,
+                    token=access_token,
+                    top_k=top_k,
+                )
+            except DocMindUnavailableError as exc:
+                # 和任务工具一致：错误转成 dict 喂回模型，不炸掉整轮对话。
+                return {
+                    "success": False,
+                    "error": f"knowledge base unavailable: {exc}",
+                }
+
+            if not results:
+                return {
+                    "success": True,
+                    "results": [],
+                    "message": "知识库中没有找到相关内容。",
+                }
+
+            return {
+                "success": True,
+                "results": results,
+            }
+
+        tools.append(
+            StructuredTool.from_function(
+                coroutine=search_knowledge,
+                name="search_knowledge",
+                description=(
+                    "搜索企业知识库，返回与查询最相关的文档片段。"
+                    "当用户的问题需要公司内部资料（制度、流程、文档）"
+                    "支撑时使用。回答时应注明来源文件名。"
+                ),
+                args_schema=SearchKnowledgeInput,
+            )
+        )
+
+    return tools
 
 
 # ============================================================

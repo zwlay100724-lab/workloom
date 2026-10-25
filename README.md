@@ -55,6 +55,27 @@ curl -X POST http://localhost:8000/login \
 把返回的 `access_token` 填到 DocMind Swagger 的 **Authorize** 按钮里。
 两个服务必须配置同一个 `JWT_SECRET_KEY`；DocMind 只验签，不查询 TaskFlow 的数据库。
 
+## 服务互联
+
+除了共享 JWT 契约，两个服务还通过 HTTP 互相调用：
+
+- **DocMind `POST /retrieval/search`**：纯检索接口，只返回片段、不生成答案，
+  支持 `vector` / `hybrid` 两种模式。比 `/rag/query` 少一次 LLM 调用，
+  适合调用方自己处理片段的场景。
+- **TaskFlow `GET /tasks/{id}/knowledge`**：任务详情「相关知识」，
+  用任务标题 + 描述去知识库检索，返回带文件名 / 页码 / 分数的片段。
+- **TaskFlow AI 助手新增 `search_knowledge` 工具**：在 `POST /ai/chat/tools`
+  的对话里，模型可以一边查知识库一边操作任务，回答时注明来源文件名。
+
+调用方向固定为 **TaskFlow → DocMind**：DocMind 的 LangGraph 是模块级单例、
+工具在 import 时静态绑定；TaskFlow 的工具本来就按请求构建，扩展成本更低。
+
+服务间鉴权直接透传用户自己的 Bearer token（`AccessTokenDep`），DocMind
+验签后拿到的 `uid` 和 TaskFlow 完全一致，用户隔离不变。
+
+本地直跑时 TaskFlow 需要 `DOCMIND_BASE_URL`（默认 `http://localhost:8001`）；
+compose 已内置 `http://api-docmind:8001`。
+
 ## 测试
 
 ```bash

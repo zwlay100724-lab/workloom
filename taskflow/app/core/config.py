@@ -17,5 +17,10 @@ class Settings(BaseConfig):
 
     jwt_secret_key: str
 
+    # 跨服务调用：TaskFlow → DocMind 的纯检索接口。
+    # compose 里指向服务名 api-docmind；本地直跑默认本机 8001。
+    docmind_base_url: str = "http://localhost:8001"
+    docmind_timeout_seconds: float = 10.0
+
 
 settings = Settings()

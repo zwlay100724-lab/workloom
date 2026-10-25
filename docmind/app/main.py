@@ -23,6 +23,7 @@ from sqlmodel import Session, text
 from app.api.conversations import router as conversations_router
 from app.api.documents import router as documents_router
 from app.api.rag import router as rag_router
+from app.api.retrieval import router as retrieval_router
 
 # 后续板块会加更多 router
 
@@ -55,6 +56,7 @@ register_exception_handlers(app)
 # 注册路由
 app.include_router(documents_router)
 app.include_router(rag_router)  # 板块七加
+app.include_router(retrieval_router)  # 纯检索：供 TaskFlow 等调用方使用
 app.include_router(conversations_router)
 
 
