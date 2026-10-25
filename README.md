@@ -70,10 +70,14 @@ curl -X POST http://localhost:8000/login \
   `DELETE /tasks/{id}/documents/{document_id}`。只存 DocMind 的
   `document_id` 整数，跨库不建外键；重复关联是幂等的。
   `GET /tasks/{id}/knowledge?linked_only=true` 只在这些关联文档里检索。
-- **文档生成任务（带引用）**：`POST /ai/tasks/from-document`。
-  流程是「校验文档归属 → 在该文档内检索行动项片段 → LLM 结构化提取 →
-  一次性写入任务 + 关联」。每条任务带 `source_document_id` /
-  `source_filename` / `source_chunk_index`，可追溯到原文片段；
+- **文档生成任务（带引用）**：分两步。
+  1. `POST /ai/tasks/from-document/preview`：校验文档归属 → 在该文档内检索
+     行动项片段 → LLM 结构化提取，**不写库**；每条建议带 `source_snippet`
+     引用摘要，方便用户确认。
+  2. `POST /ai/tasks/from-document/apply`：提交用户确认 / 编辑后的任务列表，
+     一次性写入任务 + 关联。每条任务带 `source_document_id` /
+     `source_filename` / `source_chunk_index`，可追溯到原文片段。
+
   LLM 返回的 `source_chunk_index` 会被校验，不存在于本次片段的引用置空。
 
 调用方向固定为 **TaskFlow → DocMind**：DocMind 的 LangGraph 是模块级单例、

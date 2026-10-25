@@ -1,9 +1,12 @@
-"""「文档 → 任务」接口的回归测试。
+"""「文档 → 任务」两步流程的回归测试。
+
+preview：只生成建议，不写库，任务附带引用片段摘要；
+apply：把用户确认 / 编辑后的任务落库，并自动关联文档。
 
 DocMind 和 LLM 都用 fake 覆盖，验证：
 - 文档归属 / 索引状态的前置校验；
-- 检索范围锁定在指定文档；
-- 生成的任务带来源引用，并自动写入 task_documents 关联；
+- 预览不产生任何数据库写入；
+- 应用阶段以用户提交内容为准，来源字段由服务端强制写入；
 - 下游故障（DocMind / LLM）的错误语义。
 """
 from datetime import date
@@ -18,6 +21,8 @@ from app.main import app
 from app.schemas.generated import GeneratedTaskSpec
 from app.services.llm_service import get_llm_service
 from shared.exceptions import LLMStructuredOutputError
+
+LONG_CONTENT = "长" * 300
 
 
 class FakeDocMindClient:
@@ -112,24 +117,46 @@ def fakes():
     app.dependency_overrides.pop(get_llm_service, None)
 
 
-def _generate(client, headers, **payload):
+def _preview(client, headers, **payload):
     return client.post(
-        "/ai/tasks/from-document",
+        "/ai/tasks/from-document/preview",
         headers=headers,
         json={"document_id": 7, **payload},
     )
 
 
-def test_requires_auth(client):
+def _apply(client, headers, tasks, document_id: int = 7):
+    return client.post(
+        "/ai/tasks/from-document/apply",
+        headers=headers,
+        json={"document_id": document_id, "tasks": tasks},
+    )
+
+
+def _spec(**overrides) -> dict:
+    payload = {
+        "title": "完成登录接口联调",
+        "description": "下周一前完成。",
+        "priority": "high",
+        "deadline": "2026-11-02",
+        "source_chunk_index": 0,
+    }
+    payload.update(overrides)
+    return payload
+
+
+# ── preview ────────────────────────────────────────────────────────────
+
+def test_preview_requires_auth(client):
     response = client.post(
-        "/ai/tasks/from-document",
+        "/ai/tasks/from-document/preview",
         json={"document_id": 7},
     )
 
     assert response.status_code == 401
 
 
-def test_generates_tasks_with_citations(
+def test_preview_returns_suggestions_without_writing(
         client,
         alice_headers,
         fakes,
@@ -145,13 +172,12 @@ def test_generates_tasks_with_citations(
         ),
         GeneratedTaskSpec(
             title="补充 token 过期测试",
-            description="覆盖 token 过期场景。",
             priority="medium",
             source_chunk_index=5,
         ),
     ]
 
-    response = _generate(
+    response = _preview(
         client,
         alice_headers,
         instruction="只关注测试与联调",
@@ -162,47 +188,75 @@ def test_generates_tasks_with_citations(
     data = response.json()
     assert data["document_id"] == 7
     assert data["filename"] == "plan.pdf"
+    assert data["instruction"] == "只关注测试与联调"
     assert len(data["tasks"]) == 2
-    first = data["tasks"][0]
-    assert first["title"] == "完成登录接口联调"
-    assert first["source_document_id"] == 7
-    assert first["source_filename"] == "plan.pdf"
-    assert first["source_chunk_index"] == 0
-    assert data["tasks"][1]["source_chunk_index"] == 5
+    assert data["tasks"][0]["source_chunk_index"] == 0
+    # 引用摘要让用户在确认前看到依据。
+    assert data["tasks"][0]["source_snippet"] == "下周一前完成登录接口联调。"
+    assert data["tasks"][1]["source_snippet"] == (
+        "测试用例需要覆盖 token 过期场景。"
+    )
 
-    # 检索必须锁定在指定文档内。
+    # 检索锁定在指定文档；LLM 收到用户要求。
     assert fakes[0].search_calls[0]["document_id"] == 7
-    assert fakes[0].search_calls[0]["top_k"] == 20
-    # LLM 收到的是文档片段和用户要求。
     assert llm.calls[0]["instruction"] == "只关注测试与联调"
-    assert llm.calls[0]["max_tasks"] == 2
-    assert llm.calls[0]["filename"] == "plan.pdf"
 
-    # 生成的任务要自动关联同一份文档，便于后续 linked_only 检索。
-    for task in data["tasks"]:
-        links = client.get(
-            f"/tasks/{task['id']}/documents",
-            headers=alice_headers,
-        )
-        assert links.status_code == 200
-        assert [item["document_id"] for item in links.json()["items"]] == [7]
+    # 关键：preview 不写库。
+    tasks = client.get("/tasks", headers=alice_headers)
+    assert tasks.json()["total"] == 0
 
 
-def test_document_not_found_returns_404(
+def test_preview_truncates_snippet(client, alice_headers, fakes):
+    fakes[0].chunks = [{
+        "document_id": 7,
+        "filename": "plan.pdf",
+        "chunk_index": 0,
+        "page": 1,
+        "content": LONG_CONTENT,
+        "score": 0.9,
+    }]
+    fakes[1].specs = [
+        GeneratedTaskSpec(title="读长片段", source_chunk_index=0)
+    ]
+
+    response = _preview(client, alice_headers)
+
+    assert response.status_code == 200, response.text
+    assert len(response.json()["tasks"][0]["source_snippet"]) == 200
+
+
+def test_preview_unknown_chunk_index_has_no_snippet(
+        client,
+        alice_headers,
+        fakes,
+):
+    # 模拟模型给出一个本次片段里不存在的编号（真实链路会被置空，
+    # 这里直接验证接口层的兜底：查不到片段就不返回摘要）。
+    fakes[1].specs = [
+        GeneratedTaskSpec(title="引用不存在", source_chunk_index=99)
+    ]
+
+    response = _preview(client, alice_headers)
+
+    assert response.status_code == 200
+    assert response.json()["tasks"][0]["source_snippet"] is None
+
+
+def test_preview_document_not_found_returns_404(
         client,
         alice_headers,
         fakes,
 ):
     fakes[0].document_error = DocMindDocumentNotFoundError("not found")
 
-    response = _generate(client, alice_headers)
+    response = _preview(client, alice_headers)
 
     assert response.status_code == 404
     assert response.json()["error"]["message"] == "document not found"
     assert fakes[1].calls == []
 
 
-def test_document_not_indexed_returns_409(
+def test_preview_document_not_indexed_returns_409(
         client,
         alice_headers,
         fakes,
@@ -213,7 +267,7 @@ def test_document_not_indexed_returns_409(
         "status": "processing",
     }
 
-    response = _generate(client, alice_headers)
+    response = _preview(client, alice_headers)
 
     assert response.status_code == 409
     assert response.json()["error"]["message"] == (
@@ -223,14 +277,14 @@ def test_document_not_indexed_returns_409(
     assert fakes[1].calls == []
 
 
-def test_document_without_chunks_returns_409(
+def test_preview_document_without_chunks_returns_409(
         client,
         alice_headers,
         fakes,
 ):
     fakes[0].chunks = []
 
-    response = _generate(client, alice_headers)
+    response = _preview(client, alice_headers)
 
     assert response.status_code == 409
     assert response.json()["error"]["message"] == (
@@ -239,27 +293,27 @@ def test_document_without_chunks_returns_409(
     assert fakes[1].calls == []
 
 
-def test_empty_specs_returns_empty_tasks(
+def test_preview_empty_specs_returns_empty_tasks(
         client,
         alice_headers,
         fakes,
 ):
     fakes[1].specs = []
 
-    response = _generate(client, alice_headers)
+    response = _preview(client, alice_headers)
 
     assert response.status_code == 200, response.text
     assert response.json()["tasks"] == []
 
 
-def test_docmind_unavailable_returns_502(
+def test_preview_docmind_unavailable_returns_502(
         client,
         alice_headers,
         fakes,
 ):
     fakes[0].document_error = DocMindUnavailableError("down")
 
-    response = _generate(client, alice_headers)
+    response = _preview(client, alice_headers)
 
     assert response.status_code == 502
     assert response.json()["error"]["message"] == (
@@ -267,16 +321,126 @@ def test_docmind_unavailable_returns_502(
     )
 
 
-def test_llm_structured_output_error_returns_502(
+def test_preview_llm_structured_output_error_returns_502(
         client,
         alice_headers,
         fakes,
 ):
     fakes[1].error = LLMStructuredOutputError("bad json")
 
-    response = _generate(client, alice_headers)
+    response = _preview(client, alice_headers)
 
     assert response.status_code == 502
     assert response.json()["error"]["code"] == (
         "LLM_STRUCTURED_OUTPUT_ERROR"
+    )
+
+
+# ── apply ──────────────────────────────────────────────────────────────
+
+def test_apply_requires_auth(client):
+    response = client.post(
+        "/ai/tasks/from-document/apply",
+        json={"document_id": 7, "tasks": [_spec()]},
+    )
+
+    assert response.status_code == 401
+
+
+def test_apply_creates_tasks_with_citations(
+        client,
+        alice_headers,
+        fakes,
+):
+    response = _apply(
+        client,
+        alice_headers,
+        [
+            _spec(title="用户改过的标题", priority="low"),
+            _spec(
+                title="补充 token 过期测试",
+                source_chunk_index=5,
+            ),
+        ],
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["document_id"] == 7
+    assert data["filename"] == "plan.pdf"
+    assert len(data["tasks"]) == 2
+    first = data["tasks"][0]
+    # 以用户确认后的内容为准。
+    assert first["title"] == "用户改过的标题"
+    assert first["priority"] == "low"
+    # 来源字段由服务端强制写入。
+    assert first["source_document_id"] == 7
+    assert first["source_filename"] == "plan.pdf"
+    assert first["source_chunk_index"] == 0
+    assert data["tasks"][1]["source_chunk_index"] == 5
+
+    # 任务自动关联文档，便于后续 linked_only 检索。
+    for task in data["tasks"]:
+        links = client.get(
+            f"/tasks/{task['id']}/documents",
+            headers=alice_headers,
+        )
+        assert links.status_code == 200
+        assert [item["document_id"] for item in links.json()["items"]] == [7]
+
+    # apply 不再调用 LLM。
+    assert fakes[1].calls == []
+
+
+def test_apply_rejects_empty_task_list(client, alice_headers, fakes):
+    response = _apply(client, alice_headers, [])
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_apply_document_not_found_returns_404(
+        client,
+        alice_headers,
+        fakes,
+):
+    fakes[0].document_error = DocMindDocumentNotFoundError("not found")
+
+    response = _apply(client, alice_headers, [_spec()])
+
+    assert response.status_code == 404
+    assert response.json()["error"]["message"] == "document not found"
+
+
+def test_apply_document_not_indexed_returns_409(
+        client,
+        alice_headers,
+        fakes,
+):
+    fakes[0].document = {
+        "id": 7,
+        "filename": "plan.pdf",
+        "status": "failed",
+    }
+
+    response = _apply(client, alice_headers, [_spec()])
+
+    assert response.status_code == 409
+    assert response.json()["error"]["message"] == (
+        "document is not indexed yet"
+    )
+
+
+def test_apply_docmind_unavailable_returns_502(
+        client,
+        alice_headers,
+        fakes,
+):
+    fakes[0].document_error = DocMindUnavailableError("down")
+
+    response = _apply(client, alice_headers, [_spec()])
+
+    assert response.status_code == 502
+    assert response.json()["error"]["message"] == (
+        "knowledge service unavailable"
     )

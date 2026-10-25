@@ -34,8 +34,11 @@ from app.schemas.ai import (
     ToolChatResponse,
 )
 from app.schemas.generated import (
+    ApplyGeneratedTasksRequest,
+    GenerateTasksPreviewResponse,
     GenerateTasksRequest,
     GenerateTasksResponse,
+    PreviewTask,
 )
 from app.schemas.task import TaskResponse
 from app.services import task_service
@@ -273,31 +276,21 @@ DEFAULT_TASK_EXTRACTION_QUERY = (
     "提取文档中的行动项、待办事项、责任人、截止时间和交付要求"
 )
 
+# 预览里每条任务附带的引用摘要长度上限。
+SOURCE_SNIPPET_MAX_CHARS = 200
 
-@router.post(
-    "/tasks/from-document",
-    response_model=GenerateTasksResponse,
-)
-async def generate_tasks_from_document(
-    payload: GenerateTasksRequest,
-    current_user: CurrentUserDep,
-    access_token: AccessTokenDep,
-    session: SessionDep,
-    llm_service: LLMServiceDep,
-    docmind: Annotated[DocMindClient, Depends(get_docmind_client)],
-) -> GenerateTasksResponse:
-    """从 DocMind 文档生成任务，并写入来源引用。
 
-    完整闭环：
-      1. 校验文档归属（DocMind 404 即不存在或不是你的）；
-      2. 在该文档范围内检索行动项相关片段；
-      3. LLM 结构化提取任务（每条的 source_chunk_index 可追溯）；
-      4. 一次性写入任务 + task_documents 关联，全部带来源文件引用。
-    """
+async def _get_indexed_document(
+    *,
+    docmind: DocMindClient,
+    token: str,
+    document_id: int,
+) -> dict:
+    """取文档并确认已完成索引；把下游错误统一转成 HTTP 语义。"""
     try:
         document = await docmind.get_document(
-            document_id=payload.document_id,
-            token=access_token,
+            document_id=document_id,
+            token=token,
         )
     except DocMindDocumentNotFoundError as exc:
         raise HTTPException(
@@ -316,7 +309,30 @@ async def generate_tasks_from_document(
             status_code=status.HTTP_409_CONFLICT,
             detail="document is not indexed yet",
         )
+    return document
 
+
+@router.post(
+    "/tasks/from-document/preview",
+    response_model=GenerateTasksPreviewResponse,
+)
+async def preview_tasks_from_document(
+    payload: GenerateTasksRequest,
+    current_user: CurrentUserDep,
+    access_token: AccessTokenDep,
+    llm_service: LLMServiceDep,
+    docmind: Annotated[DocMindClient, Depends(get_docmind_client)],
+) -> GenerateTasksPreviewResponse:
+    """第一步：从文档提取任务建议，**不写库**。
+
+    返回的每条任务都带引用片段的摘要，用户可以在前端编辑
+    （改标题 / 优先级 / 截止日期，或删掉不需要的）后再调用 apply。
+    """
+    document = await _get_indexed_document(
+        docmind=docmind,
+        token=access_token,
+        document_id=payload.document_id,
+    )
     filename = document.get("filename")
     query = payload.instruction or DEFAULT_TASK_EXTRACTION_QUERY
 
@@ -347,10 +363,59 @@ async def generate_tasks_from_document(
         max_tasks=payload.max_tasks,
     )
 
+    chunk_by_index = {
+        chunk["chunk_index"]: chunk
+        for chunk in chunks
+    }
+    preview_tasks: list[PreviewTask] = []
+    for spec in specs:
+        snippet = None
+        if spec.source_chunk_index is not None:
+            chunk = chunk_by_index.get(spec.source_chunk_index)
+            if chunk is not None:
+                snippet = chunk["content"][:SOURCE_SNIPPET_MAX_CHARS]
+        preview_tasks.append(
+            PreviewTask(
+                **spec.model_dump(),
+                source_snippet=snippet,
+            )
+        )
+
+    return GenerateTasksPreviewResponse(
+        document_id=payload.document_id,
+        filename=filename,
+        instruction=payload.instruction,
+        tasks=preview_tasks,
+    )
+
+
+@router.post(
+    "/tasks/from-document/apply",
+    response_model=GenerateTasksResponse,
+)
+async def apply_generated_tasks(
+    payload: ApplyGeneratedTasksRequest,
+    current_user: CurrentUserDep,
+    access_token: AccessTokenDep,
+    session: SessionDep,
+    docmind: Annotated[DocMindClient, Depends(get_docmind_client)],
+) -> GenerateTasksResponse:
+    """第二步：用户确认后，把编辑过的任务落库。
+
+    内容以请求体为准（用户可能改过标题 / 优先级），服务端只强制
+    document_id / filename 来自 DocMind 的校验结果，不信任客户端传的归属。
+    """
+    document = await _get_indexed_document(
+        docmind=docmind,
+        token=access_token,
+        document_id=payload.document_id,
+    )
+    filename = document.get("filename")
+
     tasks = task_service.create_generated_tasks(
         session=session,
         owner_id=current_user.id,
-        specs=specs,
+        specs=payload.tasks,
         document_id=payload.document_id,
         filename=filename,
     )
