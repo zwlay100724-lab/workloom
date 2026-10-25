@@ -1,6 +1,6 @@
 import uuid
 from pathlib import Path
-from typing import BinaryIO
+from typing import Annotated, BinaryIO
 
 from fastapi import (
     APIRouter,
@@ -11,11 +11,19 @@ from fastapi import (
     Query,
     UploadFile,
 )
+from fastapi import (
+    Path as PathParam,
+)
 from shared.db.database import get_session
 from sqlmodel import Session
 
 from app.api.deps import CurrentUserIdDep
-from app.schemas.document import DocumentListResponse, DocumentResponse
+from app.schemas.document import (
+    DocumentChunkListResponse,
+    DocumentChunkResponse,
+    DocumentListResponse,
+    DocumentResponse,
+)
 from app.services.document_service import DocumentService
 from app.services.indexing import index_document
 
@@ -195,6 +203,51 @@ def get_document(
     return DocumentService(session).get_owned_document(
         doc_id,
         current_user_id,
+    )
+
+
+@router.get(
+    "/{doc_id}/chunks",
+    response_model=DocumentChunkListResponse,
+)
+def list_document_chunks(
+    doc_id: int,
+    current_user_id: CurrentUserIdDep,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    session: Session = Depends(get_session),
+):
+    """按 chunk_index 顺序分页读取片段，供文档阅读器使用。"""
+    items, total = DocumentService(session).list_chunks(
+        doc_id,
+        current_user_id,
+        skip,
+        limit,
+    )
+    return DocumentChunkListResponse(
+        items=[
+            DocumentChunkResponse.model_validate(item)
+            for item in items
+        ],
+        total=total,
+    )
+
+
+@router.get(
+    "/{doc_id}/chunks/{chunk_index}",
+    response_model=DocumentChunkResponse,
+)
+def get_document_chunk(
+    doc_id: int,
+    chunk_index: Annotated[int, PathParam(ge=0)],
+    current_user_id: CurrentUserIdDep,
+    session: Session = Depends(get_session),
+):
+    """读取单个片段：任务引用（source_chunk_index）点开后展示原文。"""
+    return DocumentService(session).get_chunk(
+        doc_id,
+        current_user_id,
+        chunk_index,
     )
 
 

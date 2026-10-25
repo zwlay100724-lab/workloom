@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from shared.db.database import engine
 from shared.exception_handlers import register_exception_handlers
 from shared.logging import configure_logging
@@ -24,6 +25,7 @@ from app.api.conversations import router as conversations_router
 from app.api.documents import router as documents_router
 from app.api.rag import router as rag_router
 from app.api.retrieval import router as retrieval_router
+from app.core.config import settings
 
 # 后续板块会加更多 router
 
@@ -47,6 +49,18 @@ app = FastAPI(
     lifespan=lifespan,
 )
 app.middleware("http")(request_logging_middleware)
+
+# 前端工作台（http://localhost:3000）跨域调用 API。
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        origin.strip()
+        for origin in settings.cors_origins.split(",")
+        if origin.strip()
+    ],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # 统一注册异常 Handler。
 # 之前先 new 了一个 app 在这里注册、后面又 new 一个 app 覆盖——handler 全被丢掉，

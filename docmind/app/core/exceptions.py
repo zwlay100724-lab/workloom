@@ -18,6 +18,15 @@ class DocumentNotFoundError(AppException):
         )
 
 
+class ChunkNotFoundError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=404,
+            code="CHUNK_NOT_FOUND",
+            message="Document chunk not found",
+        )
+
+
 class ConversationNotFoundError(AppException):
     def __init__(self) -> None:
         super().__init__(

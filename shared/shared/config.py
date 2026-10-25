@@ -40,3 +40,7 @@ class BaseConfig(BaseSettings):
 
     # 第一次退避等待时间
     llm_retry_base_delay: float = 0.5
+
+    # 允许跨域访问的前端来源（逗号分隔）。
+    # 默认是本地工作台地址；部署到别的域名时在 .env 里覆盖。
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"

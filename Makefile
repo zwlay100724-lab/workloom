@@ -2,7 +2,7 @@ SHELL := /bin/bash
 COMPOSE ?= docker compose
 PYTHON ?= $(CURDIR)/.venv/bin/python
 
-.PHONY: help venv install up down logs ps migrate test smoke eval benchmark clean
+.PHONY: help venv install up down logs ps migrate test smoke eval benchmark workbench clean
 
 help:
 	@echo "make install  - 创建 .venv 并安装两个 app 的依赖"
@@ -12,6 +12,7 @@ help:
 	@echo "make smoke    - 对本地已启动的服务跑端到端冒烟"
 	@echo "make eval     - 索引示例语料并运行 Ragas 评测（会调用真实模型）"
 	@echo "make benchmark- 运行向量/混合/改写的检索矩阵与 chunk size 实验"
+	@echo "make workbench- 启动前端工作台 (http://localhost:3000)"
 	@echo "make down     - 停止并移除容器"
 
 venv:
@@ -54,6 +55,10 @@ eval:
 
 benchmark:
 	cd docmind && $(PYTHON) eval/benchmark.py
+
+workbench:
+	@echo "工作台: http://localhost:3000（需要先启动 TaskFlow 8000 与 DocMind 8001）"
+	cd workbench && $(PYTHON) -m http.server 3000
 
 clean:
 	find taskflow docmind shared -type d -name __pycache__ -prune -exec rm -rf {} +

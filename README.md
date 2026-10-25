@@ -89,6 +89,29 @@ curl -X POST http://localhost:8000/login \
 本地直跑时 TaskFlow 需要 `DOCMIND_BASE_URL`（默认 `http://localhost:8001`）；
 compose 已内置 `http://api-docmind:8001`。
 
+## 前端工作台
+
+仓库自带一个无构建步骤的最小工作台（`workbench/`，原生 HTML/CSS/JS）：
+
+```bash
+make workbench        # 静态服务 → http://localhost:3000
+```
+
+需要先启动两个 API（`make up`，或本地分别跑 8000 / 8001）。界面里可以：
+
+- 注册 / 登录（TaskFlow 账号，DocMind 复用同一 JWT）
+- 查看、创建、完成任务
+- 上传文档并轮询索引状态，浏览文档片段原文
+- 任务详情：关联知识库文档、查看「相关知识」、限定只搜关联文档
+- 点击知识片段或任务来源引用 → 打开对应原文片段
+- 从文档生成任务：**预览（可编辑）→ 确认创建**
+
+顶栏可以修改 TaskFlow / DocMind 的 API 地址，并用健康检查点显示两个服务的状态。
+
+跨域：两个后端通过 `CORS_ORIGINS`（默认
+`http://localhost:3000,http://127.0.0.1:3000`）允许工作台访问；
+部署到别的域名时在 `.env` 里覆盖。
+
 ## 测试
 
 ```bash

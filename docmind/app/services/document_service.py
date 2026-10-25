@@ -5,7 +5,7 @@ from datetime import datetime
 from sqlalchemy import delete as sa_delete
 from sqlmodel import Session, func, select
 
-from app.core.exceptions import DocumentNotFoundError
+from app.core.exceptions import ChunkNotFoundError, DocumentNotFoundError
 from app.models.document import Document
 from app.models.document_chunk import DocumentChunk
 from app.rag.embeddings import get_embeddings
@@ -167,6 +167,58 @@ class DocumentService:
         if not doc or doc.user_id != user_id:
             raise DocumentNotFoundError()
         return doc
+
+    def list_chunks(
+            self,
+            document_id: int,
+            user_id: int,
+            skip: int = 0,
+            limit: int = 20,
+    ) -> tuple[list[DocumentChunk], int]:
+        """按 chunk_index 顺序分页返回片段，供文档阅读器使用。
+
+        先校验文档归属：不存在 / 别人的文档一律 404，
+        不暴露"文档存在但你没有权限"这类信息。
+        """
+        self.get_owned_document(document_id, user_id)
+
+        condition = (
+            DocumentChunk.document_id == document_id,
+            DocumentChunk.user_id == user_id,
+        )
+        total = self.session.exec(
+            select(func.count())
+            .select_from(DocumentChunk)
+            .where(*condition)
+        ).one()
+        items = self.session.exec(
+            select(DocumentChunk)
+            .where(*condition)
+            .order_by(DocumentChunk.chunk_index.asc())
+            .offset(skip)
+            .limit(limit)
+        ).all()
+        return items, total
+
+    def get_chunk(
+            self,
+            document_id: int,
+            user_id: int,
+            chunk_index: int,
+    ) -> DocumentChunk:
+        """按 (document_id, chunk_index) 取单个片段，用于引用原文追溯。"""
+        self.get_owned_document(document_id, user_id)
+
+        chunk = self.session.exec(
+            select(DocumentChunk).where(
+                DocumentChunk.document_id == document_id,
+                DocumentChunk.user_id == user_id,
+                DocumentChunk.chunk_index == chunk_index,
+            )
+        ).first()
+        if chunk is None:
+            raise ChunkNotFoundError()
+        return chunk
 
     def delete_document(self, doc_id: int, user_id: int) -> None:
         """删除文档：先提交数据库删除，再删物理文件。

@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from shared.exception_handlers import register_exception_handlers
 from shared.logging import configure_logging
 from shared.middleware import request_logging_middleware
@@ -14,6 +15,7 @@ from app.api import auth, health
 from app.api.ai import router as ai_router
 from app.api.conversations import router as conversations_router
 from app.api.tasks import router as tasks_router
+from app.core.config import settings
 
 # 【数据库 schema 由 alembic 迁移负责,启动不再 create_all】
 # 原 create_db_and_tables() 已移除。原因:
@@ -25,6 +27,19 @@ from app.api.tasks import router as tasks_router
 #   cd taskflow && ../.venv/bin/alembic upgrade head
 # (测试另说:conftest.py 里用 create_all 在临时库建表,是测试的标准做法。)
 app = FastAPI(title="Taskflow API")
+
+# 前端工作台（http://localhost:3000）跨域调用 API。
+# Bearer token 走请求头，不需要 allow_credentials。
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        origin.strip()
+        for origin in settings.cors_origins.split(",")
+        if origin.strip()
+    ],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # 统一注册异常 Handler。
 register_exception_handlers(app)

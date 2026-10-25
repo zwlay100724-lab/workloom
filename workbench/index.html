@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WorkLoom 工作台</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      WorkLoom
+      <span class="brand-sub">任务 × 知识</span>
+    </div>
+
+    <div class="api-config">
+      <label>
+        TaskFlow
+        <input id="taskflow-api" value="http://localhost:8000" spellcheck="false" />
+        <span id="taskflow-dot" class="dot" title="服务状态"></span>
+      </label>
+      <label>
+        DocMind
+        <input id="docmind-api" value="http://localhost:8001" spellcheck="false" />
+        <span id="docmind-dot" class="dot" title="服务状态"></span>
+      </label>
+    </div>
+
+    <div class="user-area">
+      <span id="current-user" class="muted"></span>
+      <button id="logout-btn" class="ghost hidden" type="button">退出</button>
+    </div>
+  </header>
+
+  <section id="login-view" class="login-view">
+    <form id="login-form" class="card login-card">
+      <h1>登录 WorkLoom</h1>
+      <p class="muted">账号由 TaskFlow 管理，DocMind 复用同一个 JWT。</p>
+      <label>用户名
+        <input id="username" autocomplete="username" required />
+      </label>
+      <label>密码
+        <input id="password" type="password" autocomplete="current-password" required />
+      </label>
+      <div class="row">
+        <button type="submit">登录</button>
+        <button type="button" id="register-btn" class="ghost">注册</button>
+      </div>
+      <p id="login-error" class="error"></p>
+    </form>
+  </section>
+
+  <main id="main-view" class="workspace hidden">
+    <section class="pane tasks-pane">
+      <div class="pane-head">
+        <h2>任务</h2>
+        <form id="create-task-form" class="inline-form">
+          <input id="new-task-title" placeholder="新建任务标题" required maxlength="50" />
+          <button type="submit">添加</button>
+        </form>
+      </div>
+      <div id="task-list" class="list"></div>
+    </section>
+
+    <section class="pane detail-pane">
+      <div id="task-detail" class="detail-body">
+        <p class="empty-state">选择左侧任务，查看详情、关联文档与相关知识。</p>
+      </div>
+    </section>
+
+    <section class="pane docs-pane">
+      <div class="pane-head">
+        <h2>知识库</h2>
+        <label class="upload-btn">
+          上传文档
+          <input id="upload-input" type="file" accept=".pdf,.docx,.txt,.md" />
+        </label>
+      </div>
+      <div id="document-list" class="list"></div>
+    </section>
+  </main>
+
+  <div id="modal-root"></div>
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="./app.js"></script>
+</body>
+</html>

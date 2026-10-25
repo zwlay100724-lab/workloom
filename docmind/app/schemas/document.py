@@ -20,3 +20,18 @@ class DocumentListResponse(BaseModel):
     """文档列表响应"""
     items: list[DocumentResponse]
     total: int
+
+
+class DocumentChunkResponse(BaseModel):
+    """单个片段的原文，供引用追溯 / 文档阅读器使用。"""
+    document_id: int
+    chunk_index: int
+    page: int | None
+    content: str
+
+    model_config = {"from_attributes": True}
+
+
+class DocumentChunkListResponse(BaseModel):
+    items: list[DocumentChunkResponse]
+    total: int
