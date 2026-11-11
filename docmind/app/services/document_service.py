@@ -1,17 +1,24 @@
 import logging
-import os
 from datetime import datetime
 
 from sqlalchemy import delete as sa_delete
 from sqlmodel import Session, func, select
 
-from app.core.exceptions import ChunkNotFoundError, DocumentNotFoundError
+from app.core.exceptions import (
+    ChunkNotFoundError,
+    DocumentBusyError,
+    DocumentNotFoundError,
+)
 from app.models.document import Document
 from app.models.document_chunk import DocumentChunk
 from app.rag.embeddings import get_embeddings
 from app.rag.loaders import load_pdf
 from app.rag.splitters import split_documents
 from app.repositories.vector_repository import VectorRepository
+from app.services.event_publisher import (
+    add_outbox_event,
+    safe_publish_pending_events,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -143,11 +150,25 @@ class DocumentService:
             )
             raise
 
-    def list_documents(self, user_id: int, skip: int = 0, limit: int = 20):
-        """列出用户的文档：返回当前页 + 用户文档总数"""
+    def list_documents(
+            self,
+            user_id: int,
+            skip: int = 0,
+            limit: int = 20,
+            include_deleted: bool = False,
+    ):
+        """列出用户的文档：返回当前页 + 用户文档总数。
+
+        默认过滤软删除文档；工作台用 include_deleted=true 展示"已删除"，
+        以便用户恢复。
+        """
+        condition = [Document.user_id == user_id]
+        if not include_deleted:
+            condition.append(Document.deleted_at.is_(None))
+
         items_statement = (
             select(Document)
-            .where(Document.user_id == user_id)
+            .where(*condition)
             .order_by(Document.created_at.desc())
             .offset(skip)
             .limit(limit)
@@ -159,15 +180,27 @@ class DocumentService:
         count_statement = (
             select(func.count())
             .select_from(Document)
-            .where(Document.user_id == user_id)
+            .where(*condition)
         )
         total = self.session.exec(count_statement).one()
         return items, total
 
-    def get_owned_document(self, document_id: int, user_id: int) -> Document:
-        """取文档并校验归属；不存在和不属于当前用户统一 404。"""
+    def get_owned_document(
+            self,
+            document_id: int,
+            user_id: int,
+            *,
+            include_deleted: bool = False,
+    ) -> Document:
+        """取文档并校验归属；不存在和不属于当前用户统一 404。
+
+        include_deleted 只给删除 / 恢复这类内部操作使用；公开读接口
+        必须保持默认 False，已删除文档对外表现为不存在。
+        """
         doc = self.session.get(Document, document_id)
         if not doc or doc.user_id != user_id:
+            raise DocumentNotFoundError()
+        if doc.deleted_at is not None and not include_deleted:
             raise DocumentNotFoundError()
         return doc
 
@@ -223,27 +256,49 @@ class DocumentService:
             raise ChunkNotFoundError()
         return chunk
 
-    def delete_document(self, doc_id: int, user_id: int) -> None:
-        """删除文档：先提交数据库删除，再删物理文件。
+    def delete_document(self, doc_id: int, user_id: int) -> Document:
+        """软删除文档：保留元数据，硬删片段/向量，并在同一事务写 outbox。
 
-        顺序很重要：如果先删文件、后提交数据库，commit 失败会留下"文件没了、
-        记录还在"的状态。反过来，commit 成功后删文件失败只会留下孤儿文件，
-        可以人工清理，不会破坏数据一致性。
+        为什么片段硬删：检索 / RAG / 片段接口都直接查 document_chunks；
+        如果只标记文档删除，已删除内容仍会被检索到。硬删片段最省事，
+        也不需要改所有检索 SQL。文档行保留，TaskFlow 的来源引用仍可追溯。
+
+        物理文件先保留（软删除语义）；后续可以加清理任务。
         """
-        doc = self.get_owned_document(doc_id, user_id)
-        file_path = doc.file_path
+        doc = self.get_owned_document(
+            doc_id,
+            user_id,
+            include_deleted=True,
+        )
 
+        # 幂等：重复删除不重复发事件。
+        if doc.deleted_at is not None:
+            return doc
+
+        if doc.status == "processing":
+            raise DocumentBusyError()
+
+        now = datetime.utcnow()
+        doc.deleted_at = now
+        doc.status = "deleted"
+        # 片段已硬删，计数归零，避免前端展示旧数据。
+        doc.chunk_count = 0
+        doc.page_count = None
+        doc.updated_at = now
+        doc.restore_requested = False
+        self.session.add(doc)
+
+        # 片段/向量硬删；不 commit，和 outbox 一起提交。
         VectorRepository(self.session).delete_by_document(doc_id, user_id)
-        self.session.delete(doc)
-        self.session.commit()
 
-        try:
-            if os.path.exists(file_path):
-                os.remove(file_path)
-        except OSError:
-            logger.warning(
-                "failed to remove document file document_id=%s path=%s",
-                doc_id,
-                file_path,
-                exc_info=True,
-            )
+        add_outbox_event(
+            self.session,
+            event_type="document.deleted",
+            aggregate_id=doc_id,
+            user_id=user_id,
+            payload={"deleted_at": now.isoformat()},
+        )
+        self.session.commit()
+        safe_publish_pending_events(self.session.get_bind())
+        return doc
+

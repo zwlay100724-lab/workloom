@@ -270,6 +270,15 @@ async function openTask(taskId) {
   renderTaskDetail(task, links, knowledge, knowledgeError);
 }
 
+function invalidationText(reason) {
+  if (reason === "document_deleted") return "来源文档已删除";
+  if (reason === "document_reindexed") {
+    return "文档已重建索引，引用可能失效，请重新生成或重新关联";
+  }
+  if (reason === "document_not_found") return "来源文档已不存在";
+  return "引用已失效";
+}
+
 function knowledgeHtml(results) {
   if (!results.length) {
     return `<p class="muted">没有找到相关片段。可以给任务关联文档，或先上传知识库文档。</p>`;
@@ -365,9 +374,14 @@ function renderTaskDetail(task, links, knowledge, knowledgeError) {
                <div>
                  <strong>${esc(task.source_filename || `文档 ${task.source_document_id}`)}</strong>
                  <div class="muted">片段 #${task.source_chunk_index ?? "-"}</div>
+                 ${
+                   task.source_invalidated_at
+                     ? `<div class="error">${esc(invalidationText(task.source_invalid_reason))}</div>`
+                     : ""
+                 }
                </div>
                <button class="ghost small" id="view-citation" type="button"
-                       ${task.source_chunk_index == null ? "disabled" : ""}>
+                       ${task.source_chunk_index == null || task.source_invalid_reason === "document_deleted" ? "disabled" : ""}>
                  查看原文
                </button>
              </div>
@@ -383,8 +397,9 @@ function renderTaskDetail(task, links, knowledge, knowledgeError) {
             ? links
                 .map(
                   (link) => `
-              <span class="linked-chip">
+              <span class="linked-chip" ${link.invalidated_at ? `title="${esc(invalidationText(link.invalid_reason))}"` : ""}>
                 ${esc(link.filename || `文档 ${link.document_id}`)}
+                ${link.invalidated_at ? `<span class="chip citation">已失效</span>` : ""}
                 <button type="button" data-unlink-doc="${link.document_id}"
                         title="解除关联">×</button>
               </span>`

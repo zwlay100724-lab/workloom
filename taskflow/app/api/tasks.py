@@ -3,6 +3,7 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+from sqlmodel import Session
 
 from app.api.deps import AccessTokenDep, CurrentUserDep, SessionDep
 from app.clients.docmind import (
@@ -91,6 +92,9 @@ async def _search_linked_documents(
     query: str,
     document_ids: list[int],
     top_k: int,
+    session: Session,
+    task_id: int,
+    owner_id: int,
 ) -> list[dict]:
     """在多个关联文档里并行检索，再按分数合并。
 
@@ -119,6 +123,14 @@ async def _search_linked_documents(
             logger.warning(
                 "linked document no longer exists; skipping document_id=%s",
                 document_id,
+            )
+            # 读路径兜底：事件可能丢了，用户打开任务时顺手修复失效标记。
+            task_service.invalidate_link(
+                session=session,
+                task_id=task_id,
+                owner_id=owner_id,
+                document_id=document_id,
+                reason="document_not_found",
             )
             continue
         if isinstance(batch, BaseException):
@@ -175,6 +187,7 @@ async def get_task_knowledge(
         document_ids = [
             link.document_id
             for link in links
+            if link.invalidated_at is None
         ][:MAX_LINKED_DOCUMENTS_FOR_SEARCH]
 
         # 没有关联文档时不必再请求 DocMind。
@@ -193,6 +206,9 @@ async def get_task_knowledge(
                 query=query,
                 document_ids=document_ids,
                 top_k=top_k,
+                session=session,
+                task_id=task_id,
+                owner_id=current_user.id,
             )
         else:
             results = await docmind.search(

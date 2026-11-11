@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from app.core.exceptions import TaskForbiddenError, TaskNotFoundError
 from app.models.task import Task
 from app.models.task_document import TaskDocument
@@ -143,9 +145,14 @@ def link_document(
         owner_id: int,
         document_id: int,
         filename: str | None,
+        index_version: int = 0,
 ) -> TaskDocument:
-    """关联文档；重复调用是幂等的，只刷新文件名快照。"""
+    """关联文档；重复调用是幂等的，并刷新文件名/索引版本快照。
+
+    用户重新关联代表当前文档可用：清掉失效标记，更新版本。
+    """
     _get_owned_task_or_raise(session, task_id, owner_id)
+    now = datetime.utcnow()
 
     link = task_document_repository.get_link(
         session,
@@ -158,17 +165,54 @@ def link_document(
             task_id=task_id,
             document_id=document_id,
             filename=filename,
+            index_version=index_version,
+            last_event_at=now,
         )
         session.commit()
         session.refresh(link)
         return link
 
-    if filename is not None and link.filename != filename:
-        link.filename = filename
-        session.add(link)
-        session.commit()
-        session.refresh(link)
+    # 用户重新关联代表当前状态有效：刷新快照、清失效，
+    # 并把事件水位推到当前时间，迟到很久的旧删除/重建事件不会再生效。
+    link.filename = filename if filename is not None else link.filename
+    link.index_version = index_version
+    link.invalidated_at = None
+    link.invalid_reason = None
+    link.last_event_at = now
+    session.add(link)
+    session.commit()
+    session.refresh(link)
     return link
+
+
+def invalidate_link(
+        session: Session,
+        *,
+        task_id: int,
+        owner_id: int,
+        document_id: int,
+        reason: str,
+) -> None:
+    """读路径兜底：DocMind 返回 404 时顺手标记关联失效。
+
+    事件可能因为队列故障没到；用户打开任务时发现文档已不存在，
+    这里 best-effort 修复，避免一直显示有效关联。
+    """
+    _get_owned_task_or_raise(session, task_id, owner_id)
+    link = task_document_repository.get_link(
+        session,
+        task_id,
+        document_id,
+    )
+    if link is None or link.invalidated_at is not None:
+        return
+
+    now = datetime.utcnow()
+    link.invalidated_at = now
+    link.invalid_reason = reason
+    link.last_event_at = now
+    session.add(link)
+    session.commit()
 
 
 def unlink_document(

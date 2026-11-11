@@ -17,3 +17,37 @@ os.environ.setdefault(
     "JWT_SECRET_KEY",
     "test-only-jwt-secret-0123456789abcdef",
 )
+
+import pytest
+from app.models.document import Document
+from app.models.document_chunk import DocumentChunk
+from app.models.outbox_event import OutboxEvent
+from app.services import document_service as document_service_module
+from sqlalchemy import create_engine
+from sqlalchemy.pool import StaticPool
+from sqlmodel import SQLModel
+
+
+@pytest.fixture
+def lifecycle_engine(monkeypatch):
+    """文档生命周期测试用的内存库：只建需要的表，且不连真实 Redis。"""
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(
+        engine,
+        tables=[
+            Document.__table__,
+            DocumentChunk.__table__,
+            OutboxEvent.__table__,
+        ],
+    )
+    monkeypatch.setattr(
+        document_service_module,
+        "safe_publish_pending_events",
+        lambda bind: None,
+    )
+    yield engine
+    engine.dispose()

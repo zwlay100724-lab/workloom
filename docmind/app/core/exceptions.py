@@ -27,6 +27,17 @@ class ChunkNotFoundError(AppException):
         )
 
 
+class DocumentBusyError(AppException):
+    """文档正在索引：删除 / 恢复 / 重建索引并发操作会破坏片段一致性。"""
+
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=409,
+            code="DOCUMENT_BUSY",
+            message="Document is being indexed",
+        )
+
+
 class ConversationNotFoundError(AppException):
     def __init__(self) -> None:
         super().__init__(

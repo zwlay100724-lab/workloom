@@ -392,6 +392,18 @@ def main() -> None:
         ).json()
         assert degraded["results"] == [], degraded
 
+        links_after_delete = expect(
+            client.get(
+                f"{TASKFLOW_URL}/tasks/{task_id}/documents",
+                headers=headers,
+            ),
+            "查询删除后的任务关联",
+        ).json()
+        assert any(
+            item["document_id"] == doc_id and item.get("invalidated_at")
+            for item in links_after_delete["items"]
+        ), links_after_delete
+
         # ── 清理 ──
         expect(
             client.delete(
