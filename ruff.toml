@@ -15,5 +15,6 @@ select = ["E4", "E7", "E9", "F", "I"]
 # eval 脚本必须先插 sys.path / load_dotenv。
 "**/app/main.py" = ["E402"]
 "**/app/worker.py" = ["E402"]
+"**/app/event_worker.py" = ["E402"]
 "**/migrations/env.py" = ["E402"]
 "docmind/eval/*.py" = ["E402"]

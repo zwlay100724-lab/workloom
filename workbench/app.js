@@ -132,6 +132,7 @@ function showLogin() {
   $("#login-view").classList.remove("hidden");
   $("#main-view").classList.add("hidden");
   $("#logout-btn").classList.add("hidden");
+  $("#delete-account-btn").classList.add("hidden");
   $("#current-user").textContent = "";
 }
 
@@ -139,9 +140,22 @@ function showMain() {
   $("#login-view").classList.add("hidden");
   $("#main-view").classList.remove("hidden");
   $("#logout-btn").classList.remove("hidden");
+  $("#delete-account-btn").classList.remove("hidden");
   $("#current-user").textContent = state.username
     ? `已登录：${state.username}`
     : "";
+}
+
+async function revokeToken() {
+  if (!state.token) return;
+  try {
+    await fetch(`${state.taskflowApi}/logout`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${state.token}` },
+    });
+  } catch {
+    // 退出登录不依赖服务端；本地状态照常清理。
+  }
 }
 
 function logout(message) {
@@ -836,7 +850,26 @@ function bindEvents() {
     }
   });
 
-  $("#logout-btn").addEventListener("click", () => logout("已退出登录"));
+  $("#logout-btn").addEventListener("click", async () => {
+    await revokeToken();
+    logout("已退出登录");
+  });
+
+  $("#delete-account-btn").addEventListener("click", async () => {
+    const password = window.prompt("输入密码确认注销账号（数据会清理）");
+    if (!password) return;
+    if (!window.confirm("注销后任务和知识库数据会被清理，确定继续？")) return;
+    try {
+      await api("taskflow", "/account/delete", {
+        method: "POST",
+        body: { password },
+      });
+      toast("注销已提交，数据清理中");
+      logout("");
+    } catch (error) {
+      toast(error.message, true);
+    }
+  });
 
   $("#create-task-form").addEventListener("submit", async (event) => {
     event.preventDefault();

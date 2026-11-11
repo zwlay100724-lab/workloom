@@ -2,7 +2,7 @@ SHELL := /bin/bash
 COMPOSE ?= docker compose
 PYTHON ?= $(CURDIR)/.venv/bin/python
 
-.PHONY: help venv install up down logs ps migrate test smoke eval benchmark worker worker-taskflow workbench clean
+.PHONY: help venv install up down logs ps migrate test smoke eval benchmark worker worker-taskflow worker-docmind-events workbench clean
 
 help:
 	@echo "make install  - 创建 .venv 并安装两个 app 的依赖"
@@ -14,6 +14,7 @@ help:
 	@echo "make benchmark- 运行向量/混合/改写的检索矩阵与 chunk size 实验"
 	@echo "make worker   - 本地启动 DocMind 索引 worker（需先起 Redis）"
 	@echo "make worker-taskflow - 本地启动 TaskFlow 事件 worker（消费文档生命周期事件）"
+	@echo "make worker-docmind-events - 本地启动 DocMind 事件 worker（用户注销清理）"
 	@echo "make workbench- 启动前端工作台 (http://localhost:3000)"
 	@echo "make down     - 停止并移除容器"
 
@@ -63,6 +64,9 @@ worker:
 
 worker-taskflow:
 	cd taskflow && $(PYTHON) -m app.worker
+
+worker-docmind-events:
+	cd docmind && $(PYTHON) -m app.event_worker
 
 workbench:
 	@echo "工作台: http://localhost:3000（需要先启动 TaskFlow 8000 与 DocMind 8001）"

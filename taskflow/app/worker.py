@@ -1,11 +1,12 @@
 """TaskFlow 的跨服务事件 worker。
 
+职责：
+1. 发布 TaskFlow outbox（用户注销 user.deleted）到 DocMind 队列；
+2. 重复投递卡住的注销；
+3. 消费 DocMind 事件（文档生命周期、注销完成、用量上报）。
+
 运行：
     cd taskflow && ../.venv/bin/python -m app.worker
-
-它只消费 DocMind 发来的文档生命周期事件：
-删除 / 重建索引 / 重命名 / 恢复。事件处理失败按指数退避重试，
-最终失败只记日志（读路径还有 404 懒修复兜底）。
 """
 import logging
 import time
@@ -18,47 +19,85 @@ load_dotenv()
 from shared.db.database import engine
 from shared.event_queue import EventQueueUnavailableError, RedisEventQueue
 from shared.logging import configure_logging
+from sqlmodel import Session
 
 from app.core.config import settings
+from app.services.account_service import (
+    build_user_deleted_event,
+    list_stuck_deletion_users,
+)
 from app.services.document_event_service import process_event
+from app.services.outbox_publisher import publish_pending_events
 
 logger = logging.getLogger(__name__)
 
 
+def requeue_stuck_deletions(publisher) -> int:
+    with Session(engine) as session:
+        user_ids = list_stuck_deletion_users(
+            session,
+            stale_minutes=settings.account_deletion_stale_minutes,
+        )
+
+    for user_id in user_ids:
+        publisher.enqueue(build_user_deleted_event(user_id))
+
+    if user_ids:
+        logger.warning(
+            "re-enqueued stuck account deletions count=%s",
+            len(user_ids),
+        )
+    return len(user_ids)
+
+
 def main() -> None:
     configure_logging()
-    queue = RedisEventQueue.from_url(
+    consumer = RedisEventQueue.from_url(
         settings.doc_event_redis_url,
         settings.doc_event_queue_name,
     )
+    publisher = RedisEventQueue.from_url(
+        settings.doc_event_redis_url,
+        settings.doc_event_publish_queue_name,
+    )
     try:
-        queue.recover()
+        consumer.recover()
     except EventQueueUnavailableError:
-        # Redis 可能还没就绪；主循环会继续重试。
         logger.warning("event queue unavailable during recovery", exc_info=True)
     logger.info(
-        "TaskFlow event worker started queue=%s",
+        "TaskFlow event worker started consume=%s publish=%s",
         settings.doc_event_queue_name,
+        settings.doc_event_publish_queue_name,
     )
 
+    last_sweep = 0.0
     while True:
         try:
-            item = queue.dequeue(timeout_seconds=5)
+            publish_pending_events(engine, publisher)
+            now = time.monotonic()
+            if now - last_sweep >= 60:
+                requeue_stuck_deletions(publisher)
+                last_sweep = now
+
+            item = consumer.dequeue(timeout_seconds=5)
             if item is None:
                 continue
 
             event, raw = item
             try:
                 process_event(event, engine)
-                queue.ack(raw)
+                consumer.ack(raw)
             except Exception:
-                queue.ack(raw)
+                consumer.ack(raw)
                 next_attempt = event.attempt + 1
                 if next_attempt < settings.doc_event_max_attempts:
                     delay = settings.doc_event_retry_base_delay * (
                         2 ** event.attempt
                     )
-                    queue.enqueue(event.next_attempt(), delay_seconds=delay)
+                    consumer.enqueue(
+                        event.next_attempt(),
+                        delay_seconds=delay,
+                    )
                     logger.warning(
                         "event failed, retrying event_id=%s type=%s "
                         "attempt=%s delay=%.1fs",

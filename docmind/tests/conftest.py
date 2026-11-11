@@ -19,9 +19,11 @@ os.environ.setdefault(
 )
 
 import pytest
+from app.models.conversation import Conversation, ConversationMessage
 from app.models.document import Document
 from app.models.document_chunk import DocumentChunk
 from app.models.outbox_event import OutboxEvent
+from app.models.processed_event import ProcessedEvent
 from app.services import document_service as document_service_module
 from sqlalchemy import create_engine
 from sqlalchemy.pool import StaticPool
@@ -46,6 +48,36 @@ def lifecycle_engine(monkeypatch):
     )
     monkeypatch.setattr(
         document_service_module,
+        "safe_publish_pending_events",
+        lambda bind: None,
+    )
+    yield engine
+    engine.dispose()
+
+
+@pytest.fixture
+def account_engine(monkeypatch):
+    """用户注销清理测试：文档 / 片段 / 会话 / outbox / 幂等表。"""
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(
+        engine,
+        tables=[
+            Document.__table__,
+            DocumentChunk.__table__,
+            Conversation.__table__,
+            ConversationMessage.__table__,
+            OutboxEvent.__table__,
+            ProcessedEvent.__table__,
+        ],
+    )
+    from app.services import account_cleanup_service
+
+    monkeypatch.setattr(
+        account_cleanup_service,
         "safe_publish_pending_events",
         lambda bind: None,
     )

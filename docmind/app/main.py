@@ -21,6 +21,8 @@ from shared.middleware import request_logging_middleware
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, text
 
+# 注册事件幂等表，测试 create_all / alembic 才能看到。
+import app.models.processed_event  # noqa: F401,E402
 from app.api.conversations import router as conversations_router
 from app.api.documents import router as documents_router
 from app.api.rag import router as rag_router

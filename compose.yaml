@@ -90,9 +90,12 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://taskflow:${POSTGRES_TASKFLOW_PASSWORD:-taskflow}@postgres-taskflow:5432/taskflow
       REDIS_URL: redis://redis-taskflow:6379/0
+      SHARED_REDIS_URL: redis://redis-docmind:6379/0
+      AUTH_FAIL_CLOSED: "true"
       # 事件队列在 DocMind 的 Redis 上（队列用途，noeviction）。
       DOC_EVENT_REDIS_URL: redis://redis-docmind:6379/0
       DOC_EVENT_QUEUE_NAME: workloom:events:taskflow
+      DOC_EVENT_PUBLISH_QUEUE_NAME: workloom:events:docmind
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?请在 .env 中设置 JWT_SECRET_KEY}
       LLM_API_KEY: ${LLM_API_KEY:?请在 .env 中设置 LLM_API_KEY}
       LLM_MODEL_ID: ${LLM_MODEL_ID:-deepseek-v4-pro}
@@ -206,6 +209,30 @@ services:
       INDEX_STALE_MINUTES: ${INDEX_STALE_MINUTES:-10}
     volumes:
       # 必须和 api-docmind 挂同一个目录：worker 要读取上传的原文件。
+      - ./docmind/data:/app/docmind/data
+    depends_on:
+      postgres-docmind:
+        condition: service_healthy
+      redis-docmind:
+        condition: service_healthy
+
+  # 轻量事件 worker：消费 TaskFlow 的 user.deleted 并清理用户数据。
+  # 和索引 worker 分开，避免用户注销清理被重索引任务阻塞。
+  worker-docmind-events:
+    build:
+      context: .
+      dockerfile: docmind/Dockerfile
+    command: ["python", "-m", "app.event_worker"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://docmind:${POSTGRES_DOCMIND_PASSWORD:-docmind}@postgres-docmind:5432/docmind
+      REDIS_URL: redis://redis-docmind:6379/0
+      SHARED_REDIS_URL: redis://redis-docmind:6379/0
+      EVENT_CONSUME_QUEUE_NAME: workloom:events:docmind
+      EVENT_QUEUE_NAME: workloom:events:taskflow
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?请在 .env 中设置 JWT_SECRET_KEY}
+      LLM_API_KEY: ${LLM_API_KEY:?请在 .env 中设置 LLM_API_KEY}
+      EMBED_API_KEY: ${EMBED_API_KEY:?请在 .env 中设置 EMBED_API_KEY}
+    volumes:
       - ./docmind/data:/app/docmind/data
     depends_on:
       postgres-docmind:

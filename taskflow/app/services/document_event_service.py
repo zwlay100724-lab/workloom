@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from app.models.processed_event import ProcessedEvent
 from app.models.task import Task
 from app.models.task_document import TaskDocument
+from app.services.account_service import handle_user_deleted_completed
 from shared.event_queue import Event
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.exc import IntegrityError
@@ -199,6 +200,7 @@ _HANDLERS = {
     "document.reindexed": handle_document_reindexed,
     "document.renamed": handle_document_renamed,
     "document.restored": handle_document_restored,
+    "user.deleted.completed": handle_user_deleted_completed,
 }
 
 

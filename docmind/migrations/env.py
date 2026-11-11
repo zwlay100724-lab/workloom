@@ -45,6 +45,7 @@ import app.models.conversation  # noqa: F401  注册 conversations / conversatio
 import app.models.document  # noqa: F401  注册 documents 表
 import app.models.document_chunk  # noqa: F401  注册 document_chunks 表
 import app.models.outbox_event  # noqa: F401  注册 outbox_events 表
+import app.models.processed_event  # noqa: F401  注册 processed_events 表
 from shared.db.base import Base  # noqa: E402
 
 # this is the Alembic Config object, which provides
