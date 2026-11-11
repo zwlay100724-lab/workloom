@@ -4,9 +4,8 @@ from datetime import datetime
 from app.models.processed_event import ProcessedEvent
 from app.services import task_service
 from app.services.document_event_service import process_event
-from sqlmodel import Session, select
-
 from document_event_helpers import DOC_ID, USER_ID, load, make_event, seed
+from sqlmodel import Session, select
 
 
 def test_deleted_event_invalidates_link_and_task_source(test_engine):

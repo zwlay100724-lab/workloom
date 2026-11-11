@@ -2,7 +2,6 @@
 from datetime import datetime
 
 from app.services.document_event_service import process_event
-
 from document_event_helpers import load, make_event, seed
 
 

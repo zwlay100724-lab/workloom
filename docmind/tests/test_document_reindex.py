@@ -7,7 +7,7 @@ from app.services.document_service import DocumentService
 from langchain_core.documents import Document as LangChainDocument
 from sqlmodel import Session, select
 
-from .document_lifecycle_helpers import USER_ID, seed_document
+from .document_lifecycle_helpers import seed_document
 
 
 def _patch_indexing(monkeypatch):

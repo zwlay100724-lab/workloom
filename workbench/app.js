@@ -518,7 +518,11 @@ function renderTaskDetail(task, links, knowledge, knowledgeError) {
 
 /* ── 文档列表 ───────────────────────────────────────────────── */
 async function loadDocuments() {
-  const data = await api("docmind", "/documents?skip=0&limit=100");
+  // include_deleted=true：软删除文档仍显示在列表里，用户可恢复。
+  const data = await api(
+    "docmind",
+    "/documents?skip=0&limit=100&include_deleted=true"
+  );
   state.documents = data.items || [];
   renderDocuments();
 }
@@ -534,15 +538,22 @@ function renderDocuments() {
       (document) => `
       <div class="row-item">
         <div class="row-item-head">
-          <span class="item-title">${esc(document.filename)}</span>
+          <span class="item-title ${document.deleted_at ? "done" : ""}">${esc(document.filename)}</span>
           <span class="chip status-${esc(document.status)}">${esc(document.status)}</span>
+          ${document.index_version ? `<span class="chip">v${document.index_version}</span>` : ""}
         </div>
         <div class="muted">${document.chunk_count ?? 0} 个片段</div>
         <div class="row-item-actions">
-          <button class="ghost small" data-action="chunks" data-id="${document.id}" type="button">浏览片段</button>
+          <button class="ghost small" data-action="chunks" data-id="${document.id}" type="button"
+                  ${document.deleted_at ? "disabled" : ""}>浏览片段</button>
           <button class="small" data-action="generate" data-id="${document.id}" type="button"
                   ${document.status !== "completed" ? "disabled" : ""}>生成任务</button>
-          <button class="danger small" data-action="delete" data-id="${document.id}" type="button">删除</button>
+          ${
+            document.deleted_at
+              ? `<button class="small" data-action="restore" data-id="${document.id}" type="button">恢复</button>`
+              : `<button class="ghost small" data-action="rename" data-id="${document.id}" type="button">重命名</button>
+                 <button class="danger small" data-action="delete" data-id="${document.id}" type="button">删除</button>`
+          }
         </div>
       </div>`
     )
@@ -870,6 +881,37 @@ function bindEvents() {
     }
     if (button.dataset.action === "generate") {
       openGenerateModal(document);
+      return;
+    }
+    if (button.dataset.action === "rename") {
+      const filename = window.prompt("新的文件名", document.filename);
+      if (!filename || filename.trim() === document.filename) return;
+      try {
+        await api("docmind", `/documents/${document.id}`, {
+          method: "PATCH",
+          body: { filename: filename.trim() },
+        });
+        toast("文件名已更新");
+        await loadDocuments();
+        if (state.selectedTaskId) openTask(state.selectedTaskId);
+      } catch (error) {
+        toast(error.message, true);
+      }
+      return;
+    }
+    if (button.dataset.action === "restore") {
+      try {
+        const restored = await api(
+          "docmind",
+          `/documents/${document.id}/restore`,
+          { method: "POST" }
+        );
+        toast("已恢复，正在重新索引…");
+        await pollDocument(restored.id);
+        await loadDocuments();
+      } catch (error) {
+        toast(error.message, true);
+      }
       return;
     }
     if (button.dataset.action === "delete") {

@@ -242,6 +242,7 @@ textarea { resize: vertical; min-height: 56px; width: 100%; }
 .chip.status-completed { background: #f0fdf4; color: var(--success); }
 .chip.status-pending, .chip.status-processing { background: #fffbeb; color: var(--warning); }
 .chip.status-failed { background: #fef2f2; color: var(--danger); }
+.chip.status-deleted { background: #f3f4f6; color: var(--muted); }
 
 /* ── 任务详情 ───────────────────────────────────────── */
 .detail-title { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }

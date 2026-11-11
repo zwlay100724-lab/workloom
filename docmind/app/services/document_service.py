@@ -351,3 +351,65 @@ class DocumentService:
         safe_publish_pending_events(self.session.get_bind())
         return doc
 
+    def rename_document(
+            self,
+            doc_id: int,
+            user_id: int,
+            filename: str,
+    ) -> Document:
+        """更新展示文件名，并发 document.renamed 让 TaskFlow 刷新快照。
+
+        文件名只是展示字段；数据库存储名仍是 UUID 文件路径，不重命名物理文件。
+        """
+        doc = self.get_owned_document(doc_id, user_id)
+        now = datetime.utcnow()
+        doc.filename = filename
+        doc.updated_at = now
+        self.session.add(doc)
+
+        add_outbox_event(
+            self.session,
+            event_type="document.renamed",
+            aggregate_id=doc_id,
+            user_id=user_id,
+            payload={
+                "filename": filename,
+                "renamed_at": now.isoformat(),
+            },
+        )
+        self.session.commit()
+        safe_publish_pending_events(self.session.get_bind())
+        return doc
+
+    def restore_document(self, doc_id: int, user_id: int) -> Document:
+        """恢复软删除文档：重新变成 pending，等待 API 入队重建索引。
+
+        片段在删除时已硬删，所以恢复必须重新索引。这里只改元数据；
+        索引成功后 process_pdf 会发 document.restored（而不是 reindexed），
+        TaskFlow 收到后清除失效标记。
+        """
+        doc = self.get_owned_document(
+            doc_id,
+            user_id,
+            include_deleted=True,
+        )
+
+        # 幂等：没删除的文档直接返回。
+        if doc.deleted_at is None:
+            return doc
+
+        if doc.status == "processing":
+            raise DocumentBusyError()
+
+        now = datetime.utcnow()
+        doc.deleted_at = None
+        doc.status = "pending"
+        doc.error_message = None
+        doc.restore_requested = True
+        doc.chunk_count = 0
+        doc.page_count = None
+        doc.updated_at = now
+        self.session.add(doc)
+        self.session.commit()
+        self.session.refresh(doc)
+        return doc

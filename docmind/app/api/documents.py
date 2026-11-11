@@ -25,6 +25,7 @@ from app.schemas.document import (
     DocumentChunkListResponse,
     DocumentChunkResponse,
     DocumentListResponse,
+    DocumentRenameRequest,
     DocumentResponse,
 )
 from app.services.document_service import DocumentService
@@ -221,11 +222,17 @@ def list_documents(
         current_user_id: CurrentUserIdDep,
         skip: int = Query(0, ge=0),
         limit: int = Query(20, ge=1, le=100),
+        include_deleted: bool = Query(False),
         session: Session = Depends(get_session),
 ):
-    """获取当前用户的文档列表"""
+    """获取当前用户的文档列表；include_deleted 供工作台展示/恢复已删文档。"""
     service = DocumentService(session)
-    items, total = service.list_documents(current_user_id, skip, limit)
+    items, total = service.list_documents(
+        current_user_id,
+        skip,
+        limit,
+        include_deleted=include_deleted,
+    )
     return DocumentListResponse(items=items, total=total)
 
 
@@ -239,6 +246,22 @@ def get_document(
     return DocumentService(session).get_owned_document(
         doc_id,
         current_user_id,
+    )
+
+
+@router.patch("/{doc_id}", response_model=DocumentResponse)
+def rename_document(
+    doc_id: int,
+    payload: DocumentRenameRequest,
+    current_user_id: CurrentUserIdDep,
+    session: Session = Depends(get_session),
+):
+    """修改展示文件名；TaskFlow 会收到 document.renamed 刷新快照。"""
+    filename = sanitize_filename(payload.filename)
+    return DocumentService(session).rename_document(
+        doc_id,
+        current_user_id,
+        filename,
     )
 
 
@@ -280,6 +303,38 @@ def reindex_document(
         user_id=current_user_id,
         bind=session.get_bind(),
     )
+    return document
+
+
+@router.post(
+    "/{doc_id}/restore",
+    response_model=DocumentResponse,
+)
+def restore_document(
+    doc_id: int,
+    background_tasks: BackgroundTasks,
+    current_user_id: CurrentUserIdDep,
+    index_queue: IndexQueueDep,
+    session: Session = Depends(get_session),
+):
+    """恢复软删除文档：清除删除标记并重新入队索引。
+
+    片段在删除时已硬删，所以恢复必须重建；索引成功后才发
+    document.restored，TaskFlow 收到后清除失效标记。
+    """
+    service = DocumentService(session)
+    document = service.restore_document(doc_id, current_user_id)
+
+    # 只有真正从软删除恢复的文档才需要重建索引；
+    # 对未删除文档调用 restore 是幂等 no-op。
+    if document.restore_requested:
+        _enqueue_index(
+            index_queue,
+            background_tasks,
+            document_id=doc_id,
+            user_id=current_user_id,
+            bind=session.get_bind(),
+        )
     return document
 
 
