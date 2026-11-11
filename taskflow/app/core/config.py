@@ -26,8 +26,15 @@ class Settings(BaseConfig):
     # TaskFlow 的事件 worker 连同一个实例消费。
     doc_event_redis_url: str = "redis://localhost:6380/0"
     doc_event_queue_name: str = "workloom:events:taskflow"
+    # TaskFlow → DocMind 的事件队列（用户注销）。
+    doc_event_publish_queue_name: str = "workloom:events:docmind"
     doc_event_max_attempts: int = 3
     doc_event_retry_base_delay: float = 5.0
+    # 注销卡住多久后重复投递 user.deleted。
+    account_deletion_stale_minutes: int = 10
+
+    # 共享 Redis 里没有用户上限时的兜底配额。
+    default_monthly_token_quota: int = 1_000_000
 
 
 settings = Settings()

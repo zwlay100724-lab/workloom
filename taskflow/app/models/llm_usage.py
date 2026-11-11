@@ -2,12 +2,15 @@ from datetime import datetime
 from decimal import Decimal
 
 from shared.db.base import Base
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, func
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 
 class LLMUsage(Base):
     __tablename__ = "llm_usage"
+    __table_args__ = (
+        Index("ix_llm_usage_user_created", "user_id", "created_at"),
+    )
 
     id: Mapped[int] = mapped_column(
         primary_key=True,
@@ -30,6 +33,20 @@ class LLMUsage(Base):
     model: Mapped[str] = mapped_column(
         String(100),
         nullable=False,
+    )
+
+    # 来源：taskflow / docmind；操作：chat / rag / index ...
+    source: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="taskflow",
+        server_default="taskflow",
+    )
+    operation: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+        default="chat",
+        server_default="chat",
     )
 
     input_tokens: Mapped[int] = mapped_column(

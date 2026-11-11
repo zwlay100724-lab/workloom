@@ -44,3 +44,11 @@ class BaseConfig(BaseSettings):
     # 允许跨域访问的前端来源（逗号分隔）。
     # 默认是本地工作台地址；部署到别的域名时在 .env 里覆盖。
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+
+    # 共享状态 Redis（吊销黑名单 / token 版本 / 配额）。不配置时各 app
+    # 回退到自己的 redis_url；生产建议指向队列型 Redis，不要和缓存混用。
+    shared_redis_url: str | None = None
+
+    # 共享 Redis 不可用时是否拒绝受保护请求。安全优先用 true；
+    # 本地没有 Redis 的项目可以设 false（默认，保证开发可用）。
+    auth_fail_closed: bool = False

@@ -44,3 +44,23 @@ class InvalidCredentialsError(AppException):
                 "WWW-Authenticate": "Bearer"
             },
         )
+
+
+class AuthStateUnavailableError(AppException):
+    """共享 Redis 不可用，且配置为 fail-closed。"""
+
+    def __init__(self):
+        super().__init__(
+            status_code=503,
+            code="AUTH_STATE_UNAVAILABLE",
+            message="Authentication state is temporarily unavailable",
+        )
+
+
+class QuotaExceededError(AppException):
+    def __init__(self):
+        super().__init__(
+            status_code=429,
+            code="QUOTA_EXCEEDED",
+            message="Monthly token quota exceeded",
+        )

@@ -52,6 +52,9 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://taskflow:${POSTGRES_TASKFLOW_PASSWORD:-taskflow}@postgres-taskflow:5432/taskflow
       REDIS_URL: redis://redis-taskflow:6379/0
+      # 吊销黑名单 / token 版本 / 配额：和缓存 Redis 分开。
+      SHARED_REDIS_URL: redis://redis-docmind:6379/0
+      AUTH_FAIL_CLOSED: "true"
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?请在 .env 中设置 JWT_SECRET_KEY}
       LLM_API_KEY: ${LLM_API_KEY:?请在 .env 中设置 LLM_API_KEY}
       LLM_MODEL_ID: ${LLM_MODEL_ID:-deepseek-v4-pro}
@@ -67,6 +70,8 @@ services:
       postgres-taskflow:
         condition: service_healthy
       redis-taskflow:
+        condition: service_healthy
+      redis-docmind:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2)"]
@@ -135,6 +140,8 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://docmind:${POSTGRES_DOCMIND_PASSWORD:-docmind}@postgres-docmind:5432/docmind
       REDIS_URL: redis://redis-docmind:6379/0
+      SHARED_REDIS_URL: redis://redis-docmind:6379/0
+      AUTH_FAIL_CLOSED: "true"
       # DocMind 只验签；必须和 TaskFlow 使用同一个 secret。
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?请在 .env 中设置 JWT_SECRET_KEY}
       LLM_API_KEY: ${LLM_API_KEY:?请在 .env 中设置 LLM_API_KEY}

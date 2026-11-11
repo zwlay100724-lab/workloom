@@ -6,8 +6,10 @@ from fastapi.security import (
     HTTPBearer,
 )
 from shared.db.database import get_session
+from shared.security import AccessTokenClaims, decode_access_token_claims
 from sqlmodel import Session
 
+from app.core.config import settings
 from app.models.user import User
 from app.services import auth_service
 
@@ -19,6 +21,14 @@ SessionDep = Annotated[Session, Depends(get_session)]
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
+def _unauthorized(detail: str = "Not authenticated") -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=detail,
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
 def get_current_user(
     session: SessionDep,
     credentials: Annotated[
@@ -27,21 +37,13 @@ def get_current_user(
     ],
 ) -> User:
     if credentials is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    user = auth_service.get_user_from_token(
+        raise _unauthorized()
+    user, _claims = auth_service.get_user_from_token(
         session=session,
         token=credentials.credentials,
     )
     if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise _unauthorized("Invalid or expired token")
     return user
 
 
@@ -57,12 +59,26 @@ def get_access_token(
     共用同一个 JWT secret，验签后仍能拿到同一个 uid，身份不会断。
     """
     if credentials is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise _unauthorized()
     return credentials.credentials
+
+
+def get_token_claims(
+    credentials: Annotated[
+        HTTPAuthorizationCredentials | None,
+        Depends(bearer_scheme),
+    ],
+) -> AccessTokenClaims:
+    """只解签名，不查库：给 logout / 注销这类需要 jti 的接口用。"""
+    if credentials is None:
+        raise _unauthorized()
+    claims = decode_access_token_claims(
+        credentials.credentials,
+        secret_key=settings.jwt_secret_key,
+    )
+    if claims is None or claims.user_id is None:
+        raise _unauthorized("Invalid or expired token")
+    return claims
 
 
 CurrentUserDep = Annotated[
@@ -73,4 +89,9 @@ CurrentUserDep = Annotated[
 AccessTokenDep = Annotated[
     str,
     Depends(get_access_token),
+]
+
+TokenClaimsDep = Annotated[
+    AccessTokenClaims,
+    Depends(get_token_claims),
 ]

@@ -18,12 +18,14 @@ def make_token(
     user_id: int | None = 7,
     expires_minutes: int = 30,
     secret_key: str | None = None,
+    token_version: int = 0,
 ) -> str:
     return create_access_token(
         subject="alice",
         user_id=user_id,
         secret_key=secret_key or settings.JWT_SECRET_KEY,
         expires_minutes=expires_minutes,
+        token_version=token_version,
     )
 
 
@@ -65,6 +67,54 @@ def test_expired_token_returns_401():
         get_current_user_id(credentials(token))
 
     assert exc_info.value.status_code == 401
+
+
+class FakeStateRedis:
+    def __init__(self, *, revoked: bool = False, version: str | None = None):
+        self.revoked = revoked
+        self.version = version
+
+    def exists(self, key):
+        return 1 if self.revoked else 0
+
+    def get(self, key):
+        return self.version
+
+
+def test_revoked_jti_returns_401(monkeypatch):
+    monkeypatch.setattr(
+        "app.api.deps.get_shared_redis",
+        lambda: FakeStateRedis(revoked=True),
+    )
+    token = make_token()
+
+    with pytest.raises(HTTPException) as exc_info:
+        get_current_user_id(credentials(token))
+
+    assert exc_info.value.status_code == 401
+
+
+def test_old_token_version_returns_401(monkeypatch):
+    monkeypatch.setattr(
+        "app.api.deps.get_shared_redis",
+        lambda: FakeStateRedis(version="2"),
+    )
+    token = make_token(token_version=1)
+
+    with pytest.raises(HTTPException) as exc_info:
+        get_current_user_id(credentials(token))
+
+    assert exc_info.value.status_code == 401
+
+
+def test_current_token_version_is_allowed(monkeypatch):
+    monkeypatch.setattr(
+        "app.api.deps.get_shared_redis",
+        lambda: FakeStateRedis(version="2"),
+    )
+    token = make_token(token_version=2)
+
+    assert get_current_user_id(credentials(token)) == 7
 
 
 def test_business_endpoints_require_auth():

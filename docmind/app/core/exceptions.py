@@ -38,6 +38,15 @@ class DocumentBusyError(AppException):
         )
 
 
+class QuotaExceededError(AppException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=429,
+            code="QUOTA_EXCEEDED",
+            message="Monthly token quota exceeded",
+        )
+
+
 class ConversationNotFoundError(AppException):
     def __init__(self) -> None:
         super().__init__(

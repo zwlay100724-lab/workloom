@@ -19,7 +19,13 @@ def test_token_roundtrip_contains_uid():
 
     claims = decode_access_token_claims(token, secret_key=SECRET)
 
-    assert claims == AccessTokenClaims(subject="alice", user_id=7)
+    assert isinstance(claims, AccessTokenClaims)
+    assert claims.subject == "alice"
+    assert claims.user_id == 7
+    assert claims.token_version == 0
+    assert claims.jti
+    assert claims.issued_at is not None
+    assert claims.expires_at is not None
 
 
 def test_missing_uid_is_allowed_by_decoder():

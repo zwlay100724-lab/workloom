@@ -9,9 +9,12 @@ shared 是给多个 app 用的,不能在 import 时假设每个 app 都配了 JW
 【Token 契约】
 - sub: username，TaskFlow 用它查自己的 users 表；
 - uid: users.id，DocMind 用它做资源归属过滤（跨库不能查 users 表）；
-- exp: 过期时间。
+- jti: 单次登录唯一标识，logout 时加入 Redis 黑名单；
+- ver: 用户级 token 版本，注销/改密时递增，旧 token 全部失效；
+- iat/exp: 签发/过期时间。
 TaskFlow 签发，DocMind 只验签；两个服务必须配置同一个 JWT_SECRET_KEY。
 """
+import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -37,6 +40,11 @@ class AccessTokenClaims:
 
     subject: str
     user_id: int | None
+    # jti 用于吊销单次登录（logout）；ver 用于吊销某个用户的全部旧 token。
+    jti: str | None = None
+    token_version: int = 0
+    issued_at: datetime | None = None
+    expires_at: datetime | None = None
 
 
 def hash_password(password: str) -> str:
@@ -52,16 +60,25 @@ def create_access_token(
     subject: str,
     secret_key: str,
     user_id: int | None = None,
+    token_version: int = 0,
     algorithm: str = DEFAULT_ALGORITHM,
     expires_minutes: int = DEFAULT_ACCESS_TOKEN_EXPIRE_MINUTES,
 ) -> str:
     """签发 JWT。
 
     subject 是 username（保持旧行为）；
-    user_id 是整数主键，写入 uid claim，供 DocMind 使用。
+    user_id 是整数主键，写入 uid claim，供 DocMind 使用；
+    jti 标识单次登录，ver 是用户级 token 版本（注销/改密时递增）。
     """
-    expire = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)
-    payload: dict[str, Any] = {"sub": subject, "exp": expire}
+    now = datetime.now(timezone.utc)
+    expire = now + timedelta(minutes=expires_minutes)
+    payload: dict[str, Any] = {
+        "sub": subject,
+        "jti": uuid.uuid4().hex,
+        "ver": token_version,
+        "iat": now,
+        "exp": expire,
+    }
     if user_id is not None:
         payload["uid"] = user_id
     return jwt.encode(payload, secret_key, algorithm=algorithm)
@@ -93,7 +110,31 @@ def decode_access_token_claims(
     if uid is not None and (isinstance(uid, bool) or not isinstance(uid, int)):
         return None
 
-    return AccessTokenClaims(subject=subject, user_id=uid)
+    jti = payload.get("jti")
+    if jti is not None and not isinstance(jti, str):
+        return None
+
+    token_version = payload.get("ver", 0)
+    if isinstance(token_version, bool) or not isinstance(token_version, int):
+        return None
+
+    issued_at = _timestamp_to_datetime(payload.get("iat"))
+    expires_at = _timestamp_to_datetime(payload.get("exp"))
+
+    return AccessTokenClaims(
+        subject=subject,
+        user_id=uid,
+        jti=jti,
+        token_version=token_version,
+        issued_at=issued_at,
+        expires_at=expires_at,
+    )
+
+
+def _timestamp_to_datetime(value: Any) -> datetime | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return datetime.fromtimestamp(value, timezone.utc)
 
 
 def decode_access_token(

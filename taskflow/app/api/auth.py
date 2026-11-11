@@ -3,8 +3,13 @@ from fastapi import (
     status,
 )
 
-from app.api.deps import SessionDep
+from app.api.deps import (
+    CurrentUserDep,
+    SessionDep,
+    TokenClaimsDep,
+)
 from app.schemas.user import (
+    AccountDeleteRequest,
     TokenResponse,
     UserLogin,
     UserRead,
@@ -37,3 +42,26 @@ def login(data: UserLogin,session: SessionDep,):
             "access_token": token,
             "token_type": "bearer",
         }
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(claims: TokenClaimsDep):
+    """吊销当前 token；其他设备的 token 不受影响。"""
+    auth_service.logout(claims)
+
+
+@router.post("/account/delete", status_code=status.HTTP_202_ACCEPTED)
+def delete_account(
+    payload: AccountDeleteRequest,
+    current_user: CurrentUserDep,
+    claims: TokenClaimsDep,
+    session: SessionDep,
+):
+    """请求注销：立即禁止登录并吊销 token，DocMind 清理完成后硬删用户。"""
+    auth_service.request_account_deletion(
+        session=session,
+        user=current_user,
+        password=payload.password,
+        claims=claims,
+    )
+    return {"status": "deleting"}

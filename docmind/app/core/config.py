@@ -57,6 +57,15 @@ class Settings(BaseConfig):
     # 它本来就是队列用途（noeviction），不和 TaskFlow 的缓存混用。
     EVENT_REDIS_URL: str | None = None
     EVENT_QUEUE_NAME: str = "workloom:events:taskflow"
+    # 消费 TaskFlow 发来的事件（用户注销）。
+    EVENT_CONSUME_QUEUE_NAME: str = "workloom:events:docmind"
+    EVENT_MAX_ATTEMPTS: int = 3
+    EVENT_RETRY_BASE_DELAY_SECONDS: float = 5.0
+
+    # 配额（软限制）。上限通常由 TaskFlow 登录时写入共享 Redis；
+    # 这里是没有记录时的兜底值。
+    DEFAULT_MONTHLY_TOKEN_QUOTA: int = 1_000_000
+    RAG_ESTIMATED_TOKENS: int = 2000
 
 
 settings = Settings()

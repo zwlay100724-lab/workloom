@@ -431,6 +431,21 @@ def main() -> None:
             (204,),
         )
 
+        # 吊销当前 token；后续请求应被拒绝。
+        expect(
+            client.post(
+                f"{TASKFLOW_URL}/logout",
+                headers=headers,
+            ),
+            "退出登录",
+            (204,),
+        )
+        expect(
+            client.get(f"{TASKFLOW_URL}/tasks", headers=headers),
+            "退出后旧 token 失效",
+            (401,),
+        )
+
     print("\nSMOKE OK")
 
 
