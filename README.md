@@ -117,6 +117,29 @@ curl -X POST http://localhost:8000/login \
 本地直跑时 TaskFlow 需要 `DOCMIND_BASE_URL`（默认 `http://localhost:8001`）；
 compose 已内置 `http://api-docmind:8001`。
 
+### 文档生命周期事件（DocMind → TaskFlow）
+
+删除 / 重建索引 / 重命名 / 恢复文档时，DocMind 在业务事务里写 `outbox_events`，
+提交后投递到 Redis 事件队列；TaskFlow 的常驻 worker 消费并更新任务关联：
+
+- `document.deleted`：关联文档和任务来源标记失效；
+- `document.reindexed`：`chunk_index` 可能变化，旧版引用标记 stale；
+- `document.renamed`：刷新 TaskFlow 里的文件名快照；
+- `document.restored`：清除失效并更新索引版本。
+
+任务关联表保存 `index_version` / `invalidated_at`，事件消费用
+`processed_events` 去重、用 `last_event_at` 防乱序。队列不可达时事件留在
+outbox，由 DocMind worker 每 60 秒补投；TaskFlow 读路径遇到 404 也会懒修复。
+
+本地启动事件 worker：
+
+```bash
+make worker-taskflow   # 需要 DocMind 的 Redis（默认 localhost:6380）
+```
+
+compose 里的 `worker-taskflow` 会自动启动；`DOC_EVENT_REDIS_URL` 指向
+`redis-docmind`。
+
 ## 前端工作台
 
 仓库自带一个无构建步骤的最小工作台（`workbench/`，原生 HTML/CSS/JS）：

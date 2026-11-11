@@ -44,6 +44,7 @@ def render_item(type_, obj, autogen_context):
 import app.models.conversation  # noqa: F401  注册 conversations / conversation_messages 表
 import app.models.document  # noqa: F401  注册 documents 表
 import app.models.document_chunk  # noqa: F401  注册 document_chunks 表
+import app.models.outbox_event  # noqa: F401  注册 outbox_events 表
 from shared.db.base import Base  # noqa: E402
 
 # this is the Alembic Config object, which provides

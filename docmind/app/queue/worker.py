@@ -32,9 +32,13 @@ class IndexWorker:
             max_attempts: int | None = None,
             retry_base_delay: float | None = None,
             stale_minutes: int | None = None,
+            outbox_publisher: Callable[[], None] | None = None,
     ) -> None:
         self.queue = queue
         self.bind = bind
+        # 跨服务事件补投：每隔 recovery_interval 调用一次。
+        # 业务操作提交后会先 best-effort 投递，这里是失败兜底。
+        self.outbox_publisher = outbox_publisher
         # 默认用真实索引；测试注入 fake。
         self.indexer = indexer or (
             lambda document_id: index_document(
@@ -181,6 +185,11 @@ class IndexWorker:
                 now = time.monotonic()
                 if now - self._last_recovery >= recovery_interval_seconds:
                     self.recover_stale()
+                    if self.outbox_publisher is not None:
+                        try:
+                            self.outbox_publisher()
+                        except Exception:
+                            logger.exception("outbox publish failed")
                     self._last_recovery = now
                 self.run_once()
             except QueueUnavailableError:

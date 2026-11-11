@@ -27,7 +27,15 @@ class Document(SQLModel, table=True):
     # docmind 是另一个库(5433)，跨库没有外键。这里只存"taskflow 用户 id"的整数，
     # 用户隔离在应用层做（每个查询都按 user_id 过滤）。
     user_id: int = Field(index=True)
-    status: str = Field(default="pending")  # pending/processing/completed/failed
+    # pending / processing / completed / failed / deleted
+    status: str = Field(default="pending")
+    # 软删除时间：公开读接口过滤已删除文档，任务引用仍可追溯历史。
+    deleted_at: datetime | None = Field(default=None, index=True)
+    # 每次成功索引 +1。TaskFlow 用它判断任务引用是否基于旧版切分。
+    index_version: int = Field(default=0)
+    # 恢复请求标记：恢复后需要重建片段；索引成功时发 document.restored，
+    # 而不是 document.reindexed（后者会把刚恢复的引用重新标成失效）。
+    restore_requested: bool = Field(default=False)
     page_count: int | None = Field(default=None)  # 页数（加载后填充）
     chunk_count: int | None = Field(default=None)  # 片段数（板块三后填充）
     error_message: str | None = Field(default=None)  # 处理失败时的错误信息

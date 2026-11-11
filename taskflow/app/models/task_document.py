@@ -27,4 +27,10 @@ class TaskDocument(SQLModel, table=True):
     task_id: int = Field(foreign_key="task.id", index=True)
     document_id: int = Field(index=True)
     filename: str | None = Field(default=None)
+    # 关联时的 DocMind 索引版本；重建索引后与事件里的新版本比较。
+    index_version: int = Field(default=0)
+    invalidated_at: datetime | None = Field(default=None)
+    invalid_reason: str | None = Field(default=None)
+    # 最后处理事件的时间：旧事件不能覆盖新状态（删除 vs 恢复）。
+    last_event_at: datetime | None = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)

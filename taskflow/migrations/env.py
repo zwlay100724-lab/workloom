@@ -33,6 +33,7 @@ load_dotenv()
 # SQLModel 的 User/Task 共享同一份 metadata——都注册在这份 Base 上。
 import app.models.conversation  # noqa: F401
 import app.models.llm_usage  # noqa: F401
+import app.models.processed_event  # noqa: F401
 import app.models.task  # noqa: F401
 import app.models.task_document  # noqa: F401
 import app.models.user  # noqa: F401

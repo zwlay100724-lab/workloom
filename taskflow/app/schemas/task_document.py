@@ -14,6 +14,9 @@ class TaskDocumentResponse(BaseModel):
     document_id: int
     # 链接时从 DocMind 取回的文件名快照。
     filename: str | None = None
+    index_version: int = 0
+    invalidated_at: datetime | None = None
+    invalid_reason: str | None = None
     created_at: datetime
 
 

@@ -52,5 +52,11 @@ class Settings(BaseConfig):
     # 文档停在 processing 超过多少分钟视为 worker 崩溃遗留，重新入队。
     INDEX_STALE_MINUTES: int = 10
 
+    # ── 跨服务事件 ────────────────────────────────
+    # DocMind 把文档生命周期事件投递给 TaskFlow。默认复用 DocMind 的 Redis：
+    # 它本来就是队列用途（noeviction），不和 TaskFlow 的缓存混用。
+    EVENT_REDIS_URL: str | None = None
+    EVENT_QUEUE_NAME: str = "workloom:events:taskflow"
+
 
 settings = Settings()

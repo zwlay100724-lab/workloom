@@ -1,6 +1,18 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
+
+
+class DocumentRenameRequest(BaseModel):
+    filename: str = Field(min_length=1, max_length=200)
+
+    @field_validator("filename")
+    @classmethod
+    def validate_filename(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("filename cannot be empty")
+        return value
 
 
 class DocumentResponse(BaseModel):
@@ -11,6 +23,8 @@ class DocumentResponse(BaseModel):
     status: str
     page_count: int | None
     chunk_count: int | None
+    index_version: int = 0
+    deleted_at: datetime | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

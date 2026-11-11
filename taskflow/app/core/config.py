@@ -22,5 +22,12 @@ class Settings(BaseConfig):
     docmind_base_url: str = "http://localhost:8001"
     docmind_timeout_seconds: float = 10.0
 
+    # DocMind 发布文档生命周期事件到它自己的 Redis 队列；
+    # TaskFlow 的事件 worker 连同一个实例消费。
+    doc_event_redis_url: str = "redis://localhost:6380/0"
+    doc_event_queue_name: str = "workloom:events:taskflow"
+    doc_event_max_attempts: int = 3
+    doc_event_retry_base_delay: float = 5.0
+
 
 settings = Settings()

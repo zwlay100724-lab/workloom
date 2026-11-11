@@ -4,6 +4,8 @@
 归属校验（任务是否属于当前用户）属于 service 的职责，
 commit 由 service 在完整业务动作后统一执行。
 """
+from datetime import datetime
+
 from app.models.task_document import TaskDocument
 from sqlalchemy import delete
 from sqlmodel import Session, select
@@ -39,11 +41,15 @@ def add_link(
         task_id: int,
         document_id: int,
         filename: str | None,
+        index_version: int = 0,
+        last_event_at: datetime | None = None,
 ) -> TaskDocument:
     link = TaskDocument(
         task_id=task_id,
         document_id=document_id,
         filename=filename,
+        index_version=index_version,
+        last_event_at=last_event_at,
     )
     session.add(link)
     return link
