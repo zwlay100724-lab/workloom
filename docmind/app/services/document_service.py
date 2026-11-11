@@ -77,14 +77,28 @@ class DocumentService:
 
         幂等性：
         - 每次成功索引都会先删除该文档的旧 chunk，再插入新 chunk；
-        - 删除 + 插入 + 状态更新在同一个事务里提交；
+        - 删除 + 插入 + 状态更新 + outbox 事件在同一个事务里提交；
         - 失败时回滚，旧索引保持不变（不会出现"删除成功、插入失败"的半成品）。
 
         注意：Embedding 是网络调用，放在数据库事务之外执行，避免长时间持有事务。
+
+        版本号只在成功时递增；失败不改变 index_version，否则 TaskFlow 会误判
+        引用失效。旧版本 > 0 时发事件：
+        - 普通重建 → document.reindexed
+        - 从软删除恢复 → document.restored（避免又把刚恢复的引用标成 stale）
         """
         doc = self.session.get(Document, doc_id)
         if not doc:
             raise ValueError(f"文档 {doc_id} 不存在")
+
+        # 删除后队列里可能还有旧任务；恢复会把 deleted_at 清空。
+        # 已删除文档直接跳过，避免 worker 把片段又写回来。
+        if doc.deleted_at is not None:
+            logger.info("skip indexing deleted document_id=%s", doc_id)
+            return {"skipped": True}
+
+        old_version = doc.index_version or 0
+        was_restore = bool(doc.restore_requested)
 
         try:
             doc.status = "processing"
@@ -116,23 +130,58 @@ class DocumentService:
                 user_id=doc.user_id,
             )
 
+            now = datetime.utcnow()
+            doc.index_version = old_version + 1
             doc.status = "completed"
             doc.page_count = len(documents)
             doc.chunk_count = len(chunks)
             doc.error_message = None
-            doc.updated_at = datetime.utcnow()
+            doc.restore_requested = False
+            doc.updated_at = now
             self.session.add(doc)
+
+            # 首次索引没有引用可失效，不发事件。
+            if old_version > 0:
+                if was_restore:
+                    add_outbox_event(
+                        self.session,
+                        event_type="document.restored",
+                        aggregate_id=doc_id,
+                        user_id=doc.user_id,
+                        payload={
+                            "restored_at": now.isoformat(),
+                            "index_version": doc.index_version,
+                        },
+                    )
+                else:
+                    add_outbox_event(
+                        self.session,
+                        event_type="document.reindexed",
+                        aggregate_id=doc_id,
+                        user_id=doc.user_id,
+                        payload={
+                            "old_index_version": old_version,
+                            "new_index_version": doc.index_version,
+                            "reindexed_at": now.isoformat(),
+                        },
+                    )
+
             self.session.commit()
+            safe_publish_pending_events(self.session.get_bind())
 
             logger.info(
-                "document indexed document_id=%s pages=%s chunks=%s",
+                "document indexed document_id=%s pages=%s chunks=%s "
+                "index_version=%s restored=%s",
                 doc_id,
                 len(documents),
                 len(chunks),
+                doc.index_version,
+                was_restore,
             )
             return {
                 "page_count": len(documents),
                 "chunk_count": len(chunks),
+                "index_version": doc.index_version,
             }
 
         except Exception as exc:

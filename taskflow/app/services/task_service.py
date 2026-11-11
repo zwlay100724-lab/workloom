@@ -239,12 +239,14 @@ def create_generated_tasks(
         specs: list[GeneratedTaskSpec],
         document_id: int,
         filename: str | None,
+        index_version: int = 0,
 ) -> list[Task]:
     """把「文档 → 任务」的结果一次性落库。
 
     只在最后 commit 一次：要么任务和关联全部写入，要么整体回滚，
     不会留下"任务建了一半、引用缺失"的中间状态。
     """
+    event_at = datetime.utcnow()
     tasks = [
         Task(
             title=spec.title,
@@ -255,6 +257,8 @@ def create_generated_tasks(
             source_document_id=document_id,
             source_filename=filename,
             source_chunk_index=spec.source_chunk_index,
+            source_index_version=index_version,
+            source_last_event_at=event_at,
         )
         for spec in specs
     ]
@@ -272,6 +276,8 @@ def create_generated_tasks(
             task_id=task.id,
             document_id=document_id,
             filename=filename,
+            index_version=index_version,
+            last_event_at=event_at,
         )
 
     session.commit()

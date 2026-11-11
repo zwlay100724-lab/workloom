@@ -315,6 +315,7 @@ async def link_task_document(
         owner_id=current_user.id,
         document_id=payload.document_id,
         filename=document.get("filename"),
+        index_version=document.get("index_version", 0),
     )
     return TaskDocumentResponse.model_validate(link)
 

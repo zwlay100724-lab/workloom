@@ -424,6 +424,7 @@ async def apply_generated_tasks(
         specs=payload.tasks,
         document_id=payload.document_id,
         filename=filename,
+        index_version=document.get("index_version", 0),
     )
 
     return GenerateTasksResponse(
