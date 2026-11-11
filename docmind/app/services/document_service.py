@@ -1,14 +1,19 @@
 import logging
 from datetime import datetime
+from time import perf_counter
 
+from shared.quota import add_usage, check_quota
 from sqlalchemy import delete as sa_delete
 from sqlmodel import Session, func, select
 
+from app.core.config import settings
 from app.core.exceptions import (
     ChunkNotFoundError,
     DocumentBusyError,
     DocumentNotFoundError,
+    QuotaExceededError,
 )
+from app.core.state import get_shared_redis
 from app.models.document import Document
 from app.models.document_chunk import DocumentChunk
 from app.rag.embeddings import get_embeddings
@@ -97,6 +102,7 @@ class DocumentService:
             logger.info("skip indexing deleted document_id=%s", doc_id)
             return {"skipped": True}
 
+        started = perf_counter()
         old_version = doc.index_version or 0
         was_restore = bool(doc.restore_requested)
 
@@ -113,6 +119,17 @@ class DocumentService:
             # 1. 加载 → 2. 切分 → 3. 向量化（不持有 DB 事务）
             documents = load_pdf(doc.file_path)
             chunks = split_documents(documents)
+            char_count = sum(len(chunk.page_content) for chunk in chunks)
+            estimated_tokens = max(1, char_count // 4)
+
+            if not check_quota(
+                get_shared_redis(),
+                doc.user_id,
+                estimated_tokens,
+                settings.DEFAULT_MONTHLY_TOKEN_QUOTA,
+            ):
+                raise QuotaExceededError()
+
             vectors = get_embeddings().embed_documents(
                 [chunk.page_content for chunk in chunks]
             )
@@ -166,7 +183,27 @@ class DocumentService:
                         },
                     )
 
+            # Embedding 用量：DashScope 不总是返回 token 数，用字符数估算。
+            add_outbox_event(
+                self.session,
+                event_type="usage.reported",
+                aggregate_id=doc_id,
+                user_id=doc.user_id,
+                payload={
+                    "service": "docmind",
+                    "operation": "index",
+                    "model": settings.EMBED_MODEL_ID,
+                    "input_tokens": estimated_tokens,
+                    "output_tokens": 0,
+                    "total_tokens": estimated_tokens,
+                    "calls": 1,
+                    "latency_ms": int((perf_counter() - started) * 1000),
+                    "estimated_cost_usd": None,
+                },
+            )
+
             self.session.commit()
+            add_usage(get_shared_redis(), doc.user_id, estimated_tokens)
             safe_publish_pending_events(self.session.get_bind())
 
             logger.info(

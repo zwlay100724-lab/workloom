@@ -134,11 +134,25 @@ outbox，由 DocMind worker 每 60 秒补投；TaskFlow 读路径遇到 404 也�
 本地启动事件 worker：
 
 ```bash
-make worker-taskflow   # 需要 DocMind 的 Redis（默认 localhost:6380）
+make worker-taskflow          # 消费文档生命周期事件
+make worker-docmind-events    # 消费用户注销事件
 ```
 
-compose 里的 `worker-taskflow` 会自动启动；`DOC_EVENT_REDIS_URL` 指向
-`redis-docmind`。
+compose 里的 `worker-taskflow` / `worker-docmind-events` 会自动启动；
+`DOC_EVENT_REDIS_URL` 指向 `redis-docmind`。
+
+### 账户安全与配额
+
+- JWT 带 `jti` / `ver`：`POST /logout` 把当前 `jti` 加入共享 Redis 黑名单；
+  注销/改密时递增用户 `token_version`，所有旧 token 失效。
+- `POST /account/delete` 进入 `deleting` 状态并发 `user.deleted`；
+  DocMind 清理文档 / 片段 / 会话 / 文件后回发 `user.deleted.completed`，
+  TaskFlow 再硬删本服务内的任务、关联、会话和用量。
+- DocMind 的 RAG / 索引用量通过 `usage.reported` 事件汇总到 TaskFlow 的
+  `llm_usage`（`source=docmind`）；配额用共享 Redis 月度计数器，
+  TaskFlow 和 DocMind 都会在调用前检查。
+- 共享状态默认使用 `SHARED_REDIS_URL`，compose 指向 `redis-docmind`；
+  生产建议 `AUTH_FAIL_CLOSED=true`，共享 Redis 故障时拒绝受保护请求。
 
 ## 前端工作台
 

@@ -19,10 +19,20 @@ retrieve_with_rewrite（改写 + 多查询）。现在它只控制一件事：to
         → rag(纯组件) → repositories/models。单向，无环。
 """
 import logging
+from time import perf_counter
 
+from shared.quota import add_usage, check_quota
+
+from app.core.config import settings
+from app.core.exceptions import QuotaExceededError
+from app.core.state import get_shared_redis
 from app.graph.workflow import RECURSION_LIMIT, graph
 from app.llm.callbacks import UsageLoggingCallbackHandler, estimate_cost
 from app.services.conversation_service import ConversationService
+from app.services.event_publisher import (
+    add_outbox_event,
+    safe_publish_pending_events,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +61,19 @@ class RAGService:
                 "context": str,          # 拼接后的上下文（调试用）
             }
         """
+        started = perf_counter()
+
+        # 配额是软限制：调用前用固定估算值检查，成功后按实际 token 计数。
+        # Redis 不可用时 shared.quota 会 fail-open。
+        redis = get_shared_redis()
+        if not check_quota(
+            redis,
+            user_id,
+            settings.RAG_ESTIMATED_TOKENS,
+            settings.DEFAULT_MONTHLY_TOKEN_QUOTA,
+        ):
+            raise QuotaExceededError()
+
         # 1. 历史消息：由调用方查好传给图。图本身不碰会话存储，
         #    这样它不持有数据库副作用，也更容易单独测试。
         history = []
@@ -111,6 +134,34 @@ class RAGService:
             usage["input_tokens"],
             usage["output_tokens"],
         )
+
+        # DocMind 自己先加配额计数；TaskFlow 收到 usage.reported 只落库，
+        # 不再重复加，避免双扣。
+        add_usage(redis, user_id, usage["total_tokens"])
+        add_outbox_event(
+            self.session,
+            event_type="usage.reported",
+            aggregate_id=user_id,
+            user_id=user_id,
+            payload={
+                "service": "docmind",
+                "operation": "rag",
+                "model": settings.llm_model_id,
+                "input_tokens": usage["input_tokens"],
+                "output_tokens": usage["output_tokens"],
+                "total_tokens": usage["total_tokens"],
+                "calls": usage["calls"],
+                "latency_ms": int((perf_counter() - started) * 1000),
+                "estimated_cost_usd": (
+                    str(estimated_cost)
+                    if estimated_cost is not None
+                    else None
+                ),
+            },
+        )
+        self.session.commit()
+        safe_publish_pending_events(self.session.get_bind())
+
         logger.info(
             "rag query user_id=%s conversation_id=%s calls=%s "
             "input_tokens=%s output_tokens=%s total_tokens=%s "

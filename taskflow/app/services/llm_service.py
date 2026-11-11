@@ -12,6 +12,8 @@ from app.core.config import (
     llm_output_price_per_million,
     settings,
 )
+from app.core.exceptions import QuotaExceededError
+from app.core.state import get_shared_redis
 from app.llm.callbacks import UsageTrackingCallbackHandler
 from app.llm.chains import (
     get_chat_chain,
@@ -53,6 +55,7 @@ from langchain_core.runnables import Runnable
 from pydantic import ValidationError
 from shared.db.database import get_session
 from shared.exceptions import LLMStructuredOutputError
+from shared.quota import add_usage, check_quota
 from sqlmodel import Session
 
 logger = logging.getLogger(__name__)
@@ -113,6 +116,21 @@ def calculate_cost(
     )
 
 
+def _estimate_tokens(text: str | None, overhead: int = 500) -> int:
+    """粗估输入 token：中文约 2 字符/token，偏保守。"""
+    return len(text or "") // 2 + overhead
+
+
+def _ensure_quota(user_id: int, estimated_tokens: int) -> None:
+    if not check_quota(
+        get_shared_redis(),
+        user_id,
+        estimated_tokens,
+        settings.default_monthly_token_quota,
+    ):
+        raise QuotaExceededError()
+
+
 def _record_usage(
     *,
     session: Session,
@@ -123,6 +141,8 @@ def _record_usage(
     output_tokens: int | None,
     total_tokens: int | None,
     latency_ms: int,
+    source: str = "taskflow",
+    operation: str = "chat",
 ) -> LLMUsage:
     """把一次 LLM 调用的用量 / 延迟 / 费用统一落库。
 
@@ -155,12 +175,17 @@ def _record_usage(
         total_tokens=normalized_total,
         latency_ms=latency_ms,
         estimated_cost_usd=estimated_cost,
+        source=source,
+        operation=operation,
     )
 
-    return llm_usage_repository.create(
+    recorded = llm_usage_repository.create(
         session=session,
         usage=usage,
     )
+    # 配额计数放在落库之后；Redis 故障时 shared.quota 内部 fail-open。
+    add_usage(get_shared_redis(), user_id, normalized_total)
+    return recorded
 
 
 def _record_usage_with_new_session(bind, **kwargs) -> None:
@@ -233,6 +258,7 @@ class LLMService:
         user_id: int,
     ) -> str:
         """单轮普通聊天:LangChain 调用,返回纯文本。"""
+        _ensure_quota(user_id, _estimate_tokens(message))
         started = perf_counter()
         chain = get_chat_chain()
 
@@ -280,6 +306,7 @@ class LLMService:
         使用独立 Session + asyncio.shield，避免请求级 Session 被清理后
         记账任务跟着失效。
         """
+        _ensure_quota(user_id, _estimate_tokens(message))
         started = perf_counter()
         chain = get_chat_chain()
         usage_metadata: dict = {}
@@ -340,6 +367,10 @@ class LLMService:
         history_max_tokens:历史 Token 预算。limit 先按条数粗筛
         (最多取 20 条),再按这个预算把更早的、放不下的消息截掉。
         """
+        _ensure_quota(
+            user_id,
+            _estimate_tokens(message, overhead=history_max_tokens),
+        )
         await self.conversation_service.get_owned_conversation(
             conversation_id=conversation_id,
             user_id=user_id,
@@ -592,6 +623,7 @@ class LLMService:
         记账:整轮循环共用一个 UsageTrackingCallbackHandler,
         所有轮次的 LLM 调用都收进 handler,结束后在 finally 里统一落库。
         """
+        _ensure_quota(user_id, _estimate_tokens(message, overhead=2000))
         tools = build_task_tools(
             session=self.session,
             owner_id=user_id,
@@ -682,6 +714,7 @@ class LLMService:
         - Parser 版解析失败抛 OutputParserException;
         - 结构化版(json_schema 方法)解析失败抛 ValueError。
         """
+        _ensure_quota(user_id, _estimate_tokens(user_input))
         last_error: Exception | None = None
 
         for _attempt in range(2):
@@ -779,6 +812,12 @@ async def generate(
     tools=None,
     tool_choice=None,
 ) -> tuple[LLMResult, LLMUsage]:
+
+    estimated_input = sum(
+        len(str(message.get("content") or ""))
+        for message in messages
+    ) // 2
+    _ensure_quota(user_id, estimated_input + max_tokens)
 
     started = perf_counter()
     # 真正的模型调用

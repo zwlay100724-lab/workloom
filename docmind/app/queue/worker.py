@@ -13,6 +13,7 @@ from typing import Callable
 from sqlmodel import Session, select
 
 from app.core.config import settings
+from app.core.exceptions import QuotaExceededError
 from app.models.document import Document
 from app.queue.base import IndexJob, IndexQueue, QueueUnavailableError
 from app.services.indexing import index_document
@@ -94,7 +95,15 @@ class IndexWorker:
         """执行一条任务；失败时按次数决定重投还是放弃。"""
         try:
             self.indexer(job.document_id)
-        except Exception:
+        except Exception as exc:
+            # 配额超限是确定性失败，重试只会继续消耗；直接保留 failed 状态。
+            if isinstance(exc, QuotaExceededError):
+                logger.error(
+                    "index job quota exceeded document_id=%s",
+                    job.document_id,
+                )
+                return
+
             next_job = job.next_attempt()
             if next_job.attempt < self.max_attempts:
                 delay = self._backoff_seconds(job.attempt)

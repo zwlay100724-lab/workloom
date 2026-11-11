@@ -52,6 +52,9 @@ def test_reindex_increments_version_and_emits_reindexed(
         doc = session.get(Document, doc_id)
         assert result["index_version"] == 2
         assert doc.index_version == 2
-        event = session.exec(select(OutboxEvent)).one()
-        assert event.event_type == "document.reindexed"
+        event = session.exec(
+            select(OutboxEvent).where(
+                OutboxEvent.event_type == "document.reindexed"
+            )
+        ).one()
         assert event.payload["new_index_version"] == 2
