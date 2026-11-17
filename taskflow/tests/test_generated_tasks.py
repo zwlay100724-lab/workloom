@@ -12,6 +12,7 @@ DocMind 和 LLM 都用 fake 覆盖，验证：
 from datetime import date
 
 import pytest
+from app.api.ai import BASE_TASK_QUERIES, TASK_QUERY_TOP_K
 from app.clients.docmind import (
     DocMindDocumentNotFoundError,
     DocMindUnavailableError,
@@ -32,6 +33,8 @@ class FakeDocMindClient:
             document_error: Exception | None = None,
             chunks: list[dict] | None = None,
             search_error: Exception | None = None,
+            chunks_by_query: dict[str, list[dict]] | None = None,
+            error_by_query: dict[str, Exception] | None = None,
     ) -> None:
         self.document = document or {
             "id": 7,
@@ -58,6 +61,8 @@ class FakeDocMindClient:
             },
         ]
         self.search_error = search_error
+        self.chunks_by_query = chunks_by_query
+        self.error_by_query = error_by_query
         self.document_calls: list[dict] = []
         self.search_calls: list[dict] = []
 
@@ -84,8 +89,12 @@ class FakeDocMindClient:
             "top_k": top_k,
             "document_id": document_id,
         })
+        if self.error_by_query and query in self.error_by_query:
+            raise self.error_by_query[query]
         if self.search_error is not None:
             raise self.search_error
+        if self.chunks_by_query is not None and query in self.chunks_by_query:
+            return self.chunks_by_query[query]
         return self.chunks
 
 
@@ -349,6 +358,111 @@ def test_preview_llm_structured_output_error_returns_502(
     assert response.json()["error"]["code"] == (
         "LLM_STRUCTURED_OUTPUT_ERROR"
     )
+
+
+# ── preview 多查询检索 ────────────────────────────────────────────────
+
+def test_preview_runs_base_queries_without_instruction(
+        client,
+        alice_headers,
+        fakes,
+):
+    fakes[1].specs = []
+
+    response = _preview(client, alice_headers)
+
+    assert response.status_code == 200, response.text
+    calls = fakes[0].search_calls
+    assert len(calls) == len(BASE_TASK_QUERIES)
+    assert {call["query"] for call in calls} == set(BASE_TASK_QUERIES)
+    assert all(
+        call["top_k"] == TASK_QUERY_TOP_K
+        and call["document_id"] == 7
+        for call in calls
+    )
+
+
+def test_preview_appends_instruction_as_extra_query(
+        client,
+        alice_headers,
+        fakes,
+):
+    fakes[1].specs = []
+    instruction = "只关注测试相关任务"
+
+    response = _preview(
+        client,
+        alice_headers,
+        instruction=instruction,
+    )
+
+    assert response.status_code == 200, response.text
+    calls = fakes[0].search_calls
+    assert len(calls) == len(BASE_TASK_QUERIES) + 1
+    queries = {call["query"] for call in calls}
+    assert set(BASE_TASK_QUERIES) <= queries
+    assert instruction in queries
+    # instruction 仍然作为 LLM 的提取约束。
+    assert fakes[1].calls[0]["instruction"] == instruction
+
+
+def test_preview_dedupes_chunks_across_queries(
+        client,
+        alice_headers,
+        fakes,
+):
+    fakes[1].specs = [
+        GeneratedTaskSpec(
+            title="完成登录接口联调",
+            source_chunk_index=0,
+        ),
+        GeneratedTaskSpec(
+            title="补充 token 过期测试",
+            source_chunk_index=5,
+        ),
+    ]
+
+    response = _preview(client, alice_headers)
+
+    assert response.status_code == 200, response.text
+    chunks = fakes[1].calls[0]["chunks"]
+    # 每一路都返回同样两条，合并后只能出现一次。
+    assert [chunk["chunk_index"] for chunk in chunks] == [0, 5]
+    assert response.json()["tasks"][0]["source_snippet"] == (
+        "下周一前完成登录接口联调。"
+    )
+
+
+def test_preview_survives_one_query_unavailable(
+        client,
+        alice_headers,
+        fakes,
+):
+    fakes[0].error_by_query = {
+        BASE_TASK_QUERIES[0]: DocMindUnavailableError("timeout"),
+    }
+    fakes[1].specs = []
+
+    response = _preview(client, alice_headers)
+
+    assert response.status_code == 200, response.text
+    # 其余几路仍然返回片段，LLM 正常调用。
+    assert fakes[1].calls
+
+
+def test_preview_one_query_empty_still_returns_results(
+        client,
+        alice_headers,
+        fakes,
+):
+    fakes[0].chunks_by_query = {BASE_TASK_QUERIES[0]: []}
+    fakes[1].specs = []
+
+    response = _preview(client, alice_headers)
+
+    assert response.status_code == 200, response.text
+    chunks = fakes[1].calls[0]["chunks"]
+    assert {chunk["chunk_index"] for chunk in chunks} == {0, 5}
 
 
 # ── apply ──────────────────────────────────────────────────────────────

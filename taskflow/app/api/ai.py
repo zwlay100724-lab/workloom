@@ -272,13 +272,47 @@ async def parse_intent_structured(
     )
 
 
-# 没传 instruction 时用它做检索 query：把行动项类片段召回出来。
-DEFAULT_TASK_EXTRACTION_QUERY = (
-    "提取文档中的行动项、待办事项、责任人、截止时间和交付要求"
+# 任务生成的检索不依赖用户 instruction：固定跑一组任务导向 query，
+# instruction 只额外追加一路。这样"不填指令"的默认路径也能覆盖文档里的
+# 行动项、责任人、时间要求和交付物，而不是被一句泛化 query 限制住。
+BASE_TASK_QUERIES = (
+    "文档中的行动项、待办事项、需要完成的任务",
+    "责任人、负责人、由谁完成、协作方",
+    "截止日期、时间要求、里程碑、进度安排",
+    "交付物、验收标准、产出、验收条件",
 )
+
+# 每一路先各召回多少条；合并去重后最多送多少条给 LLM。
+TASK_QUERY_TOP_K = 8
+PREVIEW_CONTEXT_CHUNKS = 20
 
 # 预览里每条任务附带的引用摘要长度上限。
 SOURCE_SNIPPET_MAX_CHARS = 200
+
+
+def _merge_preview_chunks(batches: list[list[dict]]) -> list[dict]:
+    """合并多路召回结果：按 chunk_index 去重，保留最高分，再截断。
+
+    所有路都是 vector 检索，score 是同一量纲的相似度，可以直接比较。
+    """
+    best: dict[int, dict] = {}
+    for batch in batches:
+        for chunk in batch:
+            chunk_index = chunk.get("chunk_index")
+            if chunk_index is None:
+                continue
+            current = best.get(chunk_index)
+            if (
+                current is None
+                or chunk.get("score", 0.0) > current.get("score", 0.0)
+            ):
+                best[chunk_index] = chunk
+
+    return sorted(
+        best.values(),
+        key=lambda item: item.get("score", 0.0),
+        reverse=True,
+    )[:PREVIEW_CONTEXT_CHUNKS]
 
 
 async def _get_indexed_document(
@@ -336,27 +370,54 @@ async def preview_tasks_from_document(
         document_id=payload.document_id,
     )
     filename = document.get("filename")
-    query = payload.instruction or DEFAULT_TASK_EXTRACTION_QUERY
 
-    try:
-        chunks = await docmind.search(
-            query=query,
-            token=access_token,
-            top_k=20,
-            document_id=payload.document_id,
-        )
-    except DocMindDocumentNotFoundError as exc:
-        # get_document 和 search 之间文档被删除。
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="document not found",
-        ) from exc
-    except DocMindUnavailableError as exc:
+    # instruction 是过滤 / 格式要求，不替换基础召回，只额外追加一路。
+    queries = list(BASE_TASK_QUERIES)
+    if payload.instruction:
+        queries.append(payload.instruction)
+
+    results = await asyncio.gather(
+        *(
+            docmind.search(
+                query=query,
+                token=access_token,
+                top_k=TASK_QUERY_TOP_K,
+                document_id=payload.document_id,
+            )
+            for query in queries
+        ),
+        return_exceptions=True,
+    )
+
+    batches: list[list[dict]] = []
+    unavailable: list[DocMindUnavailableError] = []
+    for query, result in zip(queries, results):
+        if isinstance(result, DocMindDocumentNotFoundError):
+            # get_document 和 search 之间文档被删除。
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="document not found",
+            ) from result
+        if isinstance(result, DocMindUnavailableError):
+            logger.warning(
+                "preview retrieval failed document_id=%s query=%r error=%s",
+                payload.document_id,
+                query,
+                result,
+            )
+            unavailable.append(result)
+            continue
+        if isinstance(result, BaseException):
+            raise result
+        batches.append(result)
+
+    if not batches and unavailable:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="knowledge service unavailable",
-        ) from exc
+        ) from unavailable[0]
 
+    chunks = _merge_preview_chunks(batches)
     if not chunks:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
