@@ -23,6 +23,7 @@ python-dotenv==1.2.2       # main.py 顶部 load_dotenv()
 
 # ── 数据库 / 缓存 ──────────────────────────
 SQLAlchemy==2.0.52
+greenlet==3.5.6            # AsyncSession(conversations) 必需；SQLAlchemy 不会自动装
 sqlmodel==0.0.39
 psycopg[binary]==3.3.4     # DATABASE_URL 是 postgresql+psycopg://
 redis==8.1.0               # 任务列表缓存 / 空值缓存
