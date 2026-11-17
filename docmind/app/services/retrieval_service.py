@@ -4,7 +4,7 @@ from langchain_core.documents import Document
 
 from app.core.config import settings
 from app.llm.client import get_chat_model
-from app.rag.embeddings import get_embeddings
+from app.rag.embeddings import embed_query
 from app.rag.keywords import extract_keywords
 from app.rag.query_transformer import QueryTransformer
 from app.repositories.vector_repository import VectorRepository
@@ -27,7 +27,6 @@ class RetrievalService:
     """
 
     def __init__(self, callbacks: list | None = None):
-        self.embeddings = get_embeddings()
         self.llm = get_chat_model()
         self.query_transformer = QueryTransformer(
             self.llm,
@@ -59,7 +58,7 @@ class RetrievalService:
             top_k = settings.TOP_K
 
         # 1. 问题向量化
-        query_vector = self.embeddings.embed_query(question)
+        query_vector = embed_query(question)
 
         # 2. 向量检索（带 user_id 过滤）
         results = VectorRepository(session).search_similar(
@@ -151,7 +150,7 @@ class RetrievalService:
             top_k = settings.TOP_K
 
         # 1. 问题向量化
-        query_vector = self.embeddings.embed_query(question)
+        query_vector = embed_query(question)
 
         # 2. 查询侧关键词抽取：长问题整句匹配不到，关键词一路用抽出来的词。
         keywords = extract_keywords(question)
@@ -255,7 +254,7 @@ class RetrievalService:
         vector_repo = VectorRepository(session)
         all_pairs = []  # [(chunk, distance), ...]
         for q in search_queries:
-            query_vector = self.embeddings.embed_query(q)
+            query_vector = embed_query(q)
             results = vector_repo.search_similar(
                 query_embedding=query_vector,
                 user_id=user_id,

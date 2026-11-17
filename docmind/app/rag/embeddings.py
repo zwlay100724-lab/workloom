@@ -23,3 +23,25 @@ def get_embeddings() -> DashScopeEmbeddings:
         model=settings.EMBED_MODEL_ID,
         dashscope_api_key=settings.EMBED_API_KEY,
     )
+
+
+@lru_cache(maxsize=512)
+def _embed_query_cached(model_id: str, text: str) -> tuple[float, ...]:
+    return tuple(get_embeddings().embed_query(text))
+
+
+def embed_query(text: str) -> list[float]:
+    """带进程内 LRU 的 query embedding。
+
+    任务生成预览每次都会重复 Embedding 同样的 4 条静态 query，
+    缓存后只有第一次真正调用 DashScope。文档 embedding 不受影响，
+    索引路径仍然直接调用 embed_documents。
+
+    缓存 key 含 model_id：换模型后不会读到旧向量；进程重启清空。
+    """
+    return list(_embed_query_cached(settings.EMBED_MODEL_ID, text))
+
+
+def clear_embedding_cache() -> None:
+    """清空 query embedding 缓存（测试 / 模型切换后使用）。"""
+    _embed_query_cached.cache_clear()

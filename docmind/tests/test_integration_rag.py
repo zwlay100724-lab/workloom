@@ -144,14 +144,15 @@ class FakeToolCallingModel:
 @pytest.fixture
 def fake_embeddings(monkeypatch):
     fake = FakeEmbeddings()
-    # 上传/索引和检索各自 import 了 get_embeddings，需要分别替换模块属性。
+    # 上传/索引走 document_service.get_embeddings；查询侧走
+    # retrieval_service 导入的 embed_query（带进程内缓存）。
     monkeypatch.setattr(
         "app.services.document_service.get_embeddings",
         lambda: fake,
     )
     monkeypatch.setattr(
-        "app.services.retrieval_service.get_embeddings",
-        lambda: fake,
+        "app.services.retrieval_service.embed_query",
+        fake.embed_query,
     )
     return fake
 
