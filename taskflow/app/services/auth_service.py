@@ -31,9 +31,9 @@ from shared.security import (
     hash_password,
     verify_password,
 )
-from sqlalchemy import func, select
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 logger = logging.getLogger(__name__)
 
