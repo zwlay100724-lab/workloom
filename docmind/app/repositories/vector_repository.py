@@ -109,6 +109,7 @@ class VectorRepository:
             query: str,
             query_embedding: list[float],
             user_id: int,
+            keywords: list[str] | None = None,
             top_k: int = 5,
             document_id: int | None = None,
             candidate_k: int = 20,  # 每路召回数量
@@ -118,12 +119,14 @@ class VectorRepository:
 
           - 向量一路：语义检索（中文长句最稳，走 HNSW）；
           - tsvector 一路：Postgres 全文（英文/术语 token，中文不分词）；
-          - 关键词一路：优先 `position(lower(q) in lower(content))` 做中文/精确子串，
-            再用 word_similarity 兜底英文模糊匹配。
+          - 关键词一路：用查询侧抽出的关键词做中文/精确子串 + trigram 模糊匹配，
+            命中关键词越多排越前。
 
         为什么关键词一路不用纯 word_similarity：
         pg_trgm 对中文不生成 trigram（show_trgm('板块二') 返回空），
         只靠 word_similarity 会让中文关键词召回直接失效。
+
+        keywords 为空时退回整句匹配，保持旧行为。
         """
         k = 60  # RRF 常数
 
@@ -166,36 +169,46 @@ class VectorRepository:
         kw_ranks = {row.id: row.rank for row in kw_rows}
 
         # 3. 中文/精确子串 + trigram 模糊匹配
-        #    子串命中排在最前（CASE 0），其余按 word_similarity 排序。
+        #    用查询侧抽出的关键词任意命中；命中词数越多排越前。
+        match_terms = keywords or [query]
         tg_sql = """
-            SELECT id, ROW_NUMBER() OVER (
-                ORDER BY
-                    CASE
-                        WHEN position(lower(:q) in lower(content)) > 0
-                        THEN 0 ELSE 1
-                    END,
-                    word_similarity(:q, content) DESC,
-                    id
-            ) AS rank
-            FROM document_chunks
-            WHERE user_id = :uid
-              AND (
-                  position(lower(:q) in lower(content)) > 0
-                  OR word_similarity(:q, content) > 0.1
-              )
+            WITH scored AS (
+                SELECT id,
+                       (
+                           SELECT count(*)
+                           FROM unnest(CAST(:match_terms AS text[])) AS term
+                           WHERE position(lower(term) in lower(content)) > 0
+                       ) AS hit_count,
+                       (
+                           SELECT coalesce(
+                               max(word_similarity(term, content)), 0
+                           )
+                           FROM unnest(CAST(:match_terms AS text[])) AS term
+                       ) AS max_similarity
+                FROM document_chunks
+                WHERE user_id = :uid
+                  AND EXISTS (
+                      SELECT 1
+                      FROM unnest(CAST(:match_terms AS text[])) AS term
+                      WHERE position(lower(term) in lower(content)) > 0
+                         OR word_similarity(term, content) > 0.1
+                  )
         """
-        tg_params = {"q": query, "uid": user_id, "ck": candidate_k}
+        tg_params = {
+            "uid": user_id,
+            "match_terms": match_terms,
+            "ck": candidate_k,
+        }
         if document_id is not None:
             tg_sql += " AND document_id = :doc_id"
             tg_params["doc_id"] = document_id
         tg_sql += """
-            ORDER BY
-                CASE
-                    WHEN position(lower(:q) in lower(content)) > 0
-                    THEN 0 ELSE 1
-                END,
-                word_similarity(:q, content) DESC,
-                id
+            )
+            SELECT id, ROW_NUMBER() OVER (
+                ORDER BY hit_count DESC, max_similarity DESC, id
+            ) AS rank
+            FROM scored
+            ORDER BY hit_count DESC, max_similarity DESC, id
             LIMIT :ck
         """
         tg_rows = self.session.execute(text(tg_sql), tg_params).fetchall()

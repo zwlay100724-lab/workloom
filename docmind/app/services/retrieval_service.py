@@ -5,6 +5,7 @@ from langchain_core.documents import Document
 from app.core.config import settings
 from app.llm.client import get_chat_model
 from app.rag.embeddings import get_embeddings
+from app.rag.keywords import extract_keywords
 from app.rag.query_transformer import QueryTransformer
 from app.repositories.vector_repository import VectorRepository
 
@@ -149,12 +150,21 @@ class RetrievalService:
         if top_k is None:
             top_k = settings.TOP_K
 
-        # 1. 问题向量化（关键词一路直接用问题原文，不用再向量化）
+        # 1. 问题向量化
         query_vector = self.embeddings.embed_query(question)
 
-        # 2. 混合检索（带 user_id / 可选 document_id 过滤）
+        # 2. 查询侧关键词抽取：长问题整句匹配不到，关键词一路用抽出来的词。
+        keywords = extract_keywords(question)
+        logger.info(
+            "hybrid keywords query=%r keywords=%s",
+            question,
+            keywords,
+        )
+
+        # 3. 混合检索（带 user_id / 可选 document_id 过滤）
         results = VectorRepository(session).hybrid_search(
             query=question,
+            keywords=keywords,
             query_embedding=query_vector,
             user_id=user_id,
             top_k=top_k,
@@ -162,7 +172,7 @@ class RetrievalService:
             candidate_k=candidate_k,
         )
 
-        # 3. 转回 LangChain Document 对象
+        # 4. 转回 LangChain Document 对象
         documents = []
         for chunk, rrf_score in results:
             doc = Document(

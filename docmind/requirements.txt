@@ -40,6 +40,7 @@ langchain-openai==1.1.9
 langgraph==1.2.11          # ReAct 图（app/graph）
 openai==1.109.1            # 被 langchain-openai 1.x 约束在 <3.0
 dashscope==1.27.3          # DashScopeEmbeddings 的底层 SDK
+jieba==0.42.1              # 查询侧关键词抽取（hybrid 关键词一路）
 pypdf==6.16.2              # PyPDFLoader 底层 PDF 解析
 docx2txt==0.9              # Docx2txtLoader 底层解析
 
