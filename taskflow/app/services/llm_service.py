@@ -561,6 +561,11 @@ class LLMService:
         # 和 extract_task 一样重试一次：第一次要求 JSON 模式，
         # 校验失败时第二次不带 response_format（部分模型 JSON 模式
         # 下会截断或加多余包裹）。走统一封装的 generate()，照常记账。
+        #
+        # max_tokens 给到 6000：推理模型会先输出一大段 reasoning_content，
+        # 这段也计入 completion_tokens。20 个片段 + 3~10 条任务时，
+        # reasoning 可能吃掉 3000+ tokens，1500 会导致 content 为空、
+        # finish_reason=length，表现为 LLM_STRUCTURED_OUTPUT_ERROR。
         data: GeneratedTaskList | None = None
         last_error: ValidationError | None = None
         for attempt in range(2):
@@ -569,7 +574,7 @@ class LLMService:
                 user_id=user_id,
                 session=self.session,
                 temperature=0.2,
-                max_tokens=1500,
+                max_tokens=6000,
                 response_format=(
                     {"type": "json_object"}
                     if attempt == 0
