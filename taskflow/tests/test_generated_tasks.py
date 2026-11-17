@@ -459,3 +459,127 @@ def test_apply_docmind_unavailable_returns_502(
     assert response.json()["error"]["message"] == (
         "knowledge service unavailable"
     )
+
+
+# ── 去重 ───────────────────────────────────────────────────────────────
+
+def test_apply_skips_existing_titles(client, alice_headers, fakes):
+    first = _apply(
+        client,
+        alice_headers,
+        [
+            _spec(title="Write Tests"),
+            _spec(title="补充 token 过期测试", source_chunk_index=5),
+        ],
+    )
+    assert first.status_code == 200, first.text
+    assert len(first.json()["tasks"]) == 2
+    assert first.json()["skipped"] == []
+
+    # 大小写、首尾空格、连续空白都归一化后再比较。
+    second = _apply(
+        client,
+        alice_headers,
+        [
+            _spec(title="  write   tests "),
+            _spec(title="新任务"),
+        ],
+    )
+    assert second.status_code == 200, second.text
+    data = second.json()
+    assert [task["title"] for task in data["tasks"]] == ["新任务"]
+    assert [task["title"] for task in data["skipped"]] == [
+        "  write   tests ",
+    ]
+
+    tasks = client.get("/tasks", headers=alice_headers).json()
+    assert tasks["total"] == 3
+
+
+def test_apply_dedupes_titles_within_one_request(
+        client,
+        alice_headers,
+        fakes,
+):
+    response = _apply(
+        client,
+        alice_headers,
+        [
+            _spec(title="完成登录接口联调"),
+            _spec(title="完成登录接口联调"),
+        ],
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert len(data["tasks"]) == 1
+    assert len(data["skipped"]) == 1
+
+
+def test_apply_does_not_dedupe_across_documents(
+        client,
+        alice_headers,
+        fakes,
+):
+    first = _apply(
+        client,
+        alice_headers,
+        [_spec(title="完成登录接口联调")],
+        document_id=7,
+    )
+    second = _apply(
+        client,
+        alice_headers,
+        [_spec(title="完成登录接口联调")],
+        document_id=8,
+    )
+
+    assert first.status_code == 200, first.text
+    assert second.status_code == 200, second.text
+    assert len(second.json()["tasks"]) == 1
+    assert second.json()["skipped"] == []
+
+
+def test_apply_does_not_dedupe_manual_task_with_same_title(
+        client,
+        alice_headers,
+        fakes,
+):
+    created = client.post(
+        "/tasks",
+        headers=alice_headers,
+        json={"title": "完成登录接口联调"},
+    )
+    assert created.status_code == 201, created.text
+
+    response = _apply(
+        client,
+        alice_headers,
+        [_spec(title="完成登录接口联调")],
+    )
+
+    assert response.status_code == 200, response.text
+    assert len(response.json()["tasks"]) == 1
+    assert response.json()["skipped"] == []
+
+
+def test_preview_marks_already_exists(
+        client,
+        alice_headers,
+        fakes,
+):
+    _apply(client, alice_headers, [_spec(title="完成登录接口联调")])
+
+    fakes[1].specs = [
+        GeneratedTaskSpec(title="完成登录接口联调"),
+        GeneratedTaskSpec(title="全新任务"),
+    ]
+
+    response = _preview(client, alice_headers)
+
+    assert response.status_code == 200, response.text
+    tasks = response.json()["tasks"]
+    assert tasks[0]["already_exists"] is True
+    assert tasks[1]["already_exists"] is False
+    # preview 仍然不写库。
+    assert client.get("/tasks", headers=alice_headers).json()["total"] == 1

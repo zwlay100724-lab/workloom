@@ -39,6 +39,7 @@ from app.schemas.generated import (
     GenerateTasksRequest,
     GenerateTasksResponse,
     PreviewTask,
+    SkippedTask,
 )
 from app.schemas.task import TaskResponse
 from app.services import task_service
@@ -320,6 +321,7 @@ async def preview_tasks_from_document(
     payload: GenerateTasksRequest,
     current_user: CurrentUserDep,
     access_token: AccessTokenDep,
+    session: SessionDep,
     llm_service: LLMServiceDep,
     docmind: Annotated[DocMindClient, Depends(get_docmind_client)],
 ) -> GenerateTasksPreviewResponse:
@@ -369,6 +371,13 @@ async def preview_tasks_from_document(
         max_tasks=payload.max_tasks,
     )
 
+    # 已经生成过的标题（同一用户 + 同一文档），让前端提前标出来。
+    existing_titles = task_service.list_generated_titles(
+        session,
+        owner_id=current_user.id,
+        document_id=payload.document_id,
+    )
+
     chunk_by_index = {
         chunk["chunk_index"]: chunk
         for chunk in chunks
@@ -384,6 +393,10 @@ async def preview_tasks_from_document(
             PreviewTask(
                 **spec.model_dump(),
                 source_snippet=snippet,
+                already_exists=(
+                    task_service.normalize_generated_title(spec.title)
+                    in existing_titles
+                ),
             )
         )
 
@@ -418,7 +431,7 @@ async def apply_generated_tasks(
     )
     filename = document.get("filename")
 
-    tasks = task_service.create_generated_tasks(
+    tasks, skipped = task_service.create_generated_tasks(
         session=session,
         owner_id=current_user.id,
         specs=payload.tasks,
@@ -433,5 +446,12 @@ async def apply_generated_tasks(
         tasks=[
             TaskResponse.model_validate(task)
             for task in tasks
+        ],
+        skipped=[
+            SkippedTask(
+                title=spec.title,
+                source_chunk_index=spec.source_chunk_index,
+            )
+            for spec in skipped
         ],
     )

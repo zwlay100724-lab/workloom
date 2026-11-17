@@ -14,7 +14,7 @@ from app.schemas.task import (
     TaskPatch,
     TaskUpdate,
 )
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 
 def _get_owned_task_or_raise(session: Session,task_id: int,owner_id: int,) -> Task:
@@ -232,6 +232,33 @@ def unlink_document(
         session.commit()
 
 
+def normalize_generated_title(title: str) -> str:
+    """生成任务的去重键：忽略大小写和多余空白。"""
+    return " ".join(title.split()).casefold()
+
+
+def list_generated_titles(
+        session: Session,
+        *,
+        owner_id: int,
+        document_id: int,
+) -> set[str]:
+    """同一用户、同一文档已经生成过的任务标题（归一化后）。
+
+    只比较 source_document_id 相同的任务：手动创建的任务、
+    别的文档生成的任务都不参与去重。
+    """
+    return {
+        normalize_generated_title(title)
+        for title in session.exec(
+            select(Task.title).where(
+                Task.owner_id == owner_id,
+                Task.source_document_id == document_id,
+            )
+        ).all()
+    }
+
+
 def create_generated_tasks(
         session: Session,
         *,
@@ -240,12 +267,36 @@ def create_generated_tasks(
         document_id: int,
         filename: str | None,
         index_version: int = 0,
-) -> list[Task]:
-    """把「文档 → 任务」的结果一次性落库。
+) -> tuple[list[Task], list[GeneratedTaskSpec]]:
+    """把「文档 → 任务」的结果一次性落库，并跳过已存在的任务。
 
-    只在最后 commit 一次：要么任务和关联全部写入，要么整体回滚，
-    不会留下"任务建了一半、引用缺失"的中间状态。
+    去重键是 (owner_id, document_id, normalize(title))：
+    - 同一文档重复生成、标题只差大小写/空白，只保留第一条；
+    - 同一次请求里的重复标题也只建一条；
+    - 标题被用户改过则视为新任务。
+
+    返回 (新创建的任务, 被跳过的 spec 列表)。只在最后 commit 一次：
+    要么任务和关联全部写入，要么整体回滚，不会留下"任务建了一半、
+    引用缺失"的中间状态。
     """
+    seen = list_generated_titles(
+        session,
+        owner_id=owner_id,
+        document_id=document_id,
+    )
+    created_specs: list[GeneratedTaskSpec] = []
+    skipped: list[GeneratedTaskSpec] = []
+    for spec in specs:
+        key = normalize_generated_title(spec.title)
+        if key in seen:
+            skipped.append(spec)
+            continue
+        seen.add(key)
+        created_specs.append(spec)
+
+    if not created_specs:
+        return [], skipped
+
     event_at = datetime.utcnow()
     tasks = [
         Task(
@@ -260,10 +311,8 @@ def create_generated_tasks(
             source_index_version=index_version,
             source_last_event_at=event_at,
         )
-        for spec in specs
+        for spec in created_specs
     ]
-    if not tasks:
-        return []
 
     for task in tasks:
         session.add(task)
@@ -285,5 +334,5 @@ def create_generated_tasks(
         session.refresh(task)
         task_cache_repository.clear_missing_task_cache(task.id)
     task_cache_repository.invalidate_task_list_cache(owner_id=owner_id)
-    return tasks
+    return tasks, skipped
 

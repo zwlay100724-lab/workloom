@@ -739,9 +739,13 @@ function openGenerateModal(document) {
           .map(
             (task) => `
           <div class="preview-row" data-chunk-index="${task.source_chunk_index ?? ""}">
-            <input type="checkbox" class="gen-check" checked />
+            <input type="checkbox" class="gen-check"
+                   ${task.already_exists ? "" : "checked"} />
             <div class="preview-body">
-              <input class="gen-title" value="${esc(task.title)}" maxlength="50" />
+              <div class="row">
+                <input class="gen-title" value="${esc(task.title)}" maxlength="50" />
+                ${task.already_exists ? `<span class="chip citation">已存在</span>` : ""}
+              </div>
               <div class="row">
                 <select class="gen-priority">
                   ${["low", "medium", "high"]
@@ -805,7 +809,12 @@ function openGenerateModal(document) {
           body: { document_id: document.id, tasks: payload },
         });
         modal.close();
-        toast(`已创建 ${data.tasks.length} 个任务`);
+        const skippedCount = data.skipped?.length || 0;
+        toast(
+          skippedCount
+            ? `已创建 ${data.tasks.length} 个任务，跳过 ${skippedCount} 个已存在任务`
+            : `已创建 ${data.tasks.length} 个任务`
+        );
         await loadTasks();
         if (data.tasks.length) openTask(data.tasks[0].id);
       } catch (error) {

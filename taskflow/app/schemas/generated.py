@@ -39,6 +39,8 @@ class GeneratedTaskList(BaseModel):
 class PreviewTask(GeneratedTaskSpec):
     # 引用片段的摘要：让用户在确认前能看到任务依据的原文。
     source_snippet: str | None = None
+    # 同一文档已经生成过同标题任务；前端默认不勾选，apply 时也会跳过。
+    already_exists: bool = False
 
 
 class GenerateTasksPreviewResponse(BaseModel):
@@ -54,7 +56,15 @@ class ApplyGeneratedTasksRequest(BaseModel):
     tasks: list[GeneratedTaskSpec] = Field(min_length=1, max_length=10)
 
 
+class SkippedTask(BaseModel):
+    """apply 阶段因为已存在而被跳过的任务。"""
+
+    title: str
+    source_chunk_index: int | None = None
+
+
 class GenerateTasksResponse(BaseModel):
     document_id: int
     filename: str | None = None
     tasks: list[TaskResponse]
+    skipped: list[SkippedTask] = Field(default_factory=list)
