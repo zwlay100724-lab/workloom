@@ -3,6 +3,11 @@ import os
 from langchain_community.document_loaders import Docx2txtLoader, PyPDFLoader, TextLoader
 from langchain_core.documents import Document
 
+from app.rag.text_normalization import normalize_document_text
+
+# 只清洗 PDF / DOCX：Markdown / 纯文本可能包含代码块，不应改写。
+NORMALIZE_FILE_TYPES = {"pdf", "docx"}
+
 
 def load_document(file_path: str) -> list[Document]:
     """
@@ -25,12 +30,14 @@ def load_document(file_path: str) -> list[Document]:
 
     documents = loader.load()
 
-    # 统一补充 metadata
+    # 统一补充 metadata + 清洗 OCR 噪声
     for doc in documents:
         doc.metadata["file_type"] = file_type
         # TextLoader 没有 page 字段，补一个默认值
         if "page" not in doc.metadata:
             doc.metadata["page"] = 0
+        if file_type in NORMALIZE_FILE_TYPES:
+            doc.page_content = normalize_document_text(doc.page_content)
 
     return documents
 
