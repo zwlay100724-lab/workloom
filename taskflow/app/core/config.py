@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Literal
 
 from shared.config import BaseConfig
 
@@ -21,6 +22,10 @@ class Settings(BaseConfig):
     # compose 里指向服务名 api-docmind；本地直跑默认本机 8001。
     docmind_base_url: str = "http://localhost:8001"
     docmind_timeout_seconds: float = 10.0
+
+    # 任务生成 / 相关知识检索的默认模式：
+    # hybrid=三路召回（默认），vector=纯向量，可通过 .env 回退。
+    docmind_retrieval_mode: Literal["vector", "hybrid"] = "hybrid"
 
     # DocMind 发布文档生命周期事件到它自己的 Redis 队列；
     # TaskFlow 的事件 worker 连同一个实例消费。

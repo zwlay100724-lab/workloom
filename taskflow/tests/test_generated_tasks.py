@@ -88,6 +88,7 @@ class FakeDocMindClient:
             "query": query,
             "top_k": top_k,
             "document_id": document_id,
+            "mode": mode,
         })
         if self.error_by_query and query in self.error_by_query:
             raise self.error_by_query[query]
@@ -378,6 +379,7 @@ def test_preview_runs_base_queries_without_instruction(
     assert all(
         call["top_k"] == TASK_QUERY_TOP_K
         and call["document_id"] == 7
+        and call["mode"] == "hybrid"
         for call in calls
     )
 

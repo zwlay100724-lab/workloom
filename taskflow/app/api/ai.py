@@ -22,6 +22,7 @@ from app.clients.docmind import (
     DocMindUnavailableError,
     get_docmind_client,
 )
+from app.core.config import settings
 from app.schemas.ai import (
     ChatRequest,
     ChatResponse,
@@ -383,6 +384,7 @@ async def preview_tasks_from_document(
                 token=access_token,
                 top_k=TASK_QUERY_TOP_K,
                 document_id=payload.document_id,
+                mode=settings.docmind_retrieval_mode,
             )
             for query in queries
         ),

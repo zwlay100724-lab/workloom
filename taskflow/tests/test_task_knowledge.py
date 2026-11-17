@@ -136,7 +136,7 @@ def test_returns_knowledge_chunks(
             "token": alice_token,
             "top_k": 3,
             "document_id": None,
-            "mode": "vector",
+            "mode": "hybrid",
         }
     ]
 

@@ -57,6 +57,7 @@ class FakeDocMindClient:
             "token": token,
             "top_k": top_k,
             "document_id": document_id,
+            "mode": mode,
         })
         if document_id in self.errors_by_document:
             raise self.errors_by_document[document_id]
@@ -289,6 +290,10 @@ def test_linked_only_searches_only_linked_documents(
         for call in fake_docmind.search_calls
     }
     assert searched_ids == {7, 8}
+    assert all(
+        call["mode"] == "hybrid"
+        for call in fake_docmind.search_calls
+    )
 
 
 def test_linked_only_without_links_returns_empty(

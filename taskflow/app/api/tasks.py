@@ -12,6 +12,7 @@ from app.clients.docmind import (
     DocMindUnavailableError,
     get_docmind_client,
 )
+from app.core.config import settings
 from app.schemas.knowledge import KnowledgeChunk, TaskKnowledgeResponse
 from app.schemas.task import TaskCreate, TaskPatch, TaskResponse, TaskUpdate
 from app.schemas.task_document import (
@@ -92,6 +93,7 @@ async def _search_linked_documents(
     query: str,
     document_ids: list[int],
     top_k: int,
+    mode: str,
     session: Session,
     task_id: int,
     owner_id: int,
@@ -111,6 +113,7 @@ async def _search_linked_documents(
                 token=access_token,
                 top_k=per_document_k,
                 document_id=document_id,
+                mode=mode,
             )
             for document_id in document_ids
         ),
@@ -206,6 +209,7 @@ async def get_task_knowledge(
                 query=query,
                 document_ids=document_ids,
                 top_k=top_k,
+                mode=settings.docmind_retrieval_mode,
                 session=session,
                 task_id=task_id,
                 owner_id=current_user.id,
@@ -215,6 +219,7 @@ async def get_task_knowledge(
                 query=query,
                 token=access_token,
                 top_k=top_k,
+                mode=settings.docmind_retrieval_mode,
             )
     except DocMindUnavailableError as exc:
         logger.warning(
