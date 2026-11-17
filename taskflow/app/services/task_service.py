@@ -4,6 +4,7 @@ from app.core.exceptions import TaskForbiddenError, TaskNotFoundError
 from app.models.task import Task
 from app.models.task_document import TaskDocument
 from app.repositories import (
+    knowledge_cache_repository,
     task_cache_repository,
     task_document_repository,
     task_repository,
@@ -92,6 +93,10 @@ def update_task(session: Session, task_id: int, task: TaskUpdate, owner_id: int)
     task_cache_repository.invalidate_task_list_cache(
         owner_id=owner_id
     )
+    knowledge_cache_repository.invalidate_task(
+        user_id=owner_id,
+        task_id=task_id,
+    )
     return db_task
 
 def partial_update_task(session: Session, task_id: int, task: TaskPatch, owner_id: int):
@@ -111,6 +116,10 @@ def partial_update_task(session: Session, task_id: int, task: TaskPatch, owner_i
     task_cache_repository.invalidate_task_list_cache(
         owner_id=owner_id
     )
+    knowledge_cache_repository.invalidate_task(
+        user_id=owner_id,
+        task_id=task_id,
+    )
     return db_task
 
 def delete_task(session: Session, task_id: int, owner_id: int):
@@ -123,6 +132,10 @@ def delete_task(session: Session, task_id: int, owner_id: int):
     session.commit()
     task_cache_repository.invalidate_task_list_cache(
         owner_id=owner_id
+    )
+    knowledge_cache_repository.invalidate_task(
+        user_id=owner_id,
+        task_id=task_id,
     )
     return True
 
@@ -170,6 +183,10 @@ def link_document(
         )
         session.commit()
         session.refresh(link)
+        knowledge_cache_repository.invalidate_task(
+            user_id=owner_id,
+            task_id=task_id,
+        )
         return link
 
     # 用户重新关联代表当前状态有效：刷新快照、清失效，
@@ -182,6 +199,10 @@ def link_document(
     session.add(link)
     session.commit()
     session.refresh(link)
+    knowledge_cache_repository.invalidate_task(
+        user_id=owner_id,
+        task_id=task_id,
+    )
     return link
 
 
@@ -213,6 +234,10 @@ def invalidate_link(
     link.last_event_at = now
     session.add(link)
     session.commit()
+    knowledge_cache_repository.invalidate_task(
+        user_id=owner_id,
+        task_id=task_id,
+    )
 
 
 def unlink_document(
@@ -230,6 +255,10 @@ def unlink_document(
             document_id,
     ):
         session.commit()
+        knowledge_cache_repository.invalidate_task(
+            user_id=owner_id,
+            task_id=task_id,
+        )
 
 
 def normalize_generated_title(title: str) -> str:

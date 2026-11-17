@@ -6,6 +6,7 @@ DocMind 用 fake client 覆盖，不真的起第二个服务；
 import pytest
 from app.clients.docmind import DocMindUnavailableError, get_docmind_client
 from app.main import app
+from app.repositories import knowledge_cache_repository
 
 
 class FakeDocMindClient:
@@ -213,3 +214,101 @@ def test_docmind_failure_returns_502(
     assert response.json()["error"]["message"] == (
         "knowledge service unavailable"
     )
+
+
+# ── 相关知识缓存 ────────────────────────────────────────────────
+
+def test_cache_hit_skips_docmind(
+        client,
+        alice_headers,
+        fake_docmind,
+        monkeypatch,
+):
+    task_id = _create_task(client, alice_headers)
+    cached = [
+        {
+            "document_id": 7,
+            "filename": "cached.pdf",
+            "chunk_index": 1,
+            "page": 2,
+            "content": "缓存里的内容",
+            "score": 0.9,
+        }
+    ]
+    monkeypatch.setattr(
+        knowledge_cache_repository,
+        "get_cached",
+        lambda key: cached,
+    )
+
+    response = client.get(
+        f"/tasks/{task_id}/knowledge",
+        headers=alice_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["results"] == cached
+    assert fake_docmind.calls == []
+
+
+def test_cache_miss_writes_results(
+        client,
+        alice_headers,
+        fake_docmind,
+        monkeypatch,
+):
+    task_id = _create_task(client, alice_headers)
+    fake_docmind.results = [
+        {
+            "document_id": 7,
+            "filename": "handbook.pdf",
+            "chunk_index": 2,
+            "page": 3,
+            "content": "员工每年享有 10 天带薪年假。",
+            "score": 0.91,
+        }
+    ]
+    stored: dict = {}
+    monkeypatch.setattr(
+        knowledge_cache_repository,
+        "get_cached",
+        lambda key: None,
+    )
+    monkeypatch.setattr(
+        knowledge_cache_repository,
+        "set_cached",
+        lambda key, results: stored.update(key=key, results=results),
+    )
+
+    response = client.get(
+        f"/tasks/{task_id}/knowledge",
+        headers=alice_headers,
+    )
+
+    assert response.status_code == 200
+    assert stored["results"] == fake_docmind.results
+    assert stored["key"].startswith("taskflow:knowledge:")
+
+
+def test_task_update_invalidates_knowledge_cache(
+        client,
+        alice_headers,
+        monkeypatch,
+):
+    task_id = _create_task(client, alice_headers)
+    calls: list[dict] = []
+    monkeypatch.setattr(
+        knowledge_cache_repository,
+        "invalidate_task",
+        lambda **kwargs: calls.append(kwargs),
+    )
+
+    response = client.patch(
+        f"/tasks/{task_id}",
+        headers=alice_headers,
+        json={"done": True},
+    )
+
+    assert response.status_code == 200
+    assert calls
+    assert calls[0]["task_id"] == task_id

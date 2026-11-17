@@ -2,6 +2,7 @@
 from datetime import datetime
 
 from app.models.processed_event import ProcessedEvent
+from app.repositories import knowledge_cache_repository
 from app.services import task_service
 from app.services.document_event_service import process_event
 from document_event_helpers import DOC_ID, USER_ID, load, make_event, seed
@@ -62,3 +63,25 @@ def test_relink_clears_invalidation_and_updates_version(test_engine):
     assert link.invalidated_at is None
     assert link.invalid_reason is None
     assert link.index_version == 2
+
+
+def test_deleted_event_invalidates_knowledge_cache(
+        test_engine,
+        monkeypatch,
+):
+    seed(test_engine)
+    calls: list[int] = []
+    monkeypatch.setattr(
+        knowledge_cache_repository,
+        "invalidate_user",
+        lambda user_id: calls.append(user_id),
+    )
+
+    process_event(
+        make_event("document.deleted", {
+            "deleted_at": datetime.utcnow().isoformat(),
+        }),
+        test_engine,
+    )
+
+    assert calls == [USER_ID]

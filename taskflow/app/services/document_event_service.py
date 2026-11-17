@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from app.models.processed_event import ProcessedEvent
 from app.models.task import Task
 from app.models.task_document import TaskDocument
+from app.repositories import knowledge_cache_repository
 from app.services.account_service import handle_user_deleted_completed
 from app.services.usage_service import handle_usage_reported
 from shared.event_queue import Event
@@ -85,6 +86,7 @@ def handle_document_deleted(session: Session, event: Event) -> None:
             source_last_event_at=deleted_at,
         )
     )
+    knowledge_cache_repository.invalidate_user(event.user_id)
 
 
 def handle_document_reindexed(session: Session, event: Event) -> None:
@@ -126,6 +128,7 @@ def handle_document_reindexed(session: Session, event: Event) -> None:
             source_last_event_at=event_time,
         )
     )
+    knowledge_cache_repository.invalidate_user(event.user_id)
 
 
 def handle_document_renamed(session: Session, event: Event) -> None:
@@ -153,6 +156,7 @@ def handle_document_renamed(session: Session, event: Event) -> None:
         )
         .values(source_filename=filename)
     )
+    knowledge_cache_repository.invalidate_user(event.user_id)
 
 
 def handle_document_restored(session: Session, event: Event) -> None:
@@ -194,6 +198,7 @@ def handle_document_restored(session: Session, event: Event) -> None:
             source_last_event_at=restored_at,
         )
     )
+    knowledge_cache_repository.invalidate_user(event.user_id)
 
 
 _HANDLERS = {

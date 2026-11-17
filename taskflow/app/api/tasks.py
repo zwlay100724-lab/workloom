@@ -13,6 +13,7 @@ from app.clients.docmind import (
     get_docmind_client,
 )
 from app.core.config import settings
+from app.repositories import knowledge_cache_repository
 from app.schemas.knowledge import KnowledgeChunk, TaskKnowledgeResponse
 from app.schemas.task import TaskCreate, TaskPatch, TaskResponse, TaskUpdate
 from app.schemas.task_document import (
@@ -181,6 +182,7 @@ async def get_task_knowledge(
     ).strip()
 
     document_ids: list[int] = []
+    versions: list[tuple] | None = None
     if linked_only:
         links = task_service.list_task_documents(
             session=session,
@@ -192,6 +194,16 @@ async def get_task_knowledge(
             for link in links
             if link.invalidated_at is None
         ][:MAX_LINKED_DOCUMENTS_FOR_SEARCH]
+        versions = [
+            (
+                link.document_id,
+                link.index_version,
+                link.invalidated_at.isoformat()
+                if link.invalidated_at is not None
+                else None,
+            )
+            for link in links
+        ]
 
         # 没有关联文档时不必再请求 DocMind。
         if not document_ids:
@@ -200,6 +212,27 @@ async def get_task_knowledge(
                 query=query,
                 results=[],
             )
+
+    cache_key = knowledge_cache_repository.build_key(
+        user_id=current_user.id,
+        task_id=task.id,
+        linked_only=linked_only,
+        mode=settings.docmind_retrieval_mode,
+        top_k=top_k,
+        title=task.title,
+        description=task.description,
+        versions=versions,
+    )
+    cached = knowledge_cache_repository.get_cached(cache_key)
+    if cached is not None:
+        return TaskKnowledgeResponse(
+            task_id=task.id,
+            query=query,
+            results=[
+                KnowledgeChunk.model_validate(item)
+                for item in cached
+            ],
+        )
 
     try:
         if linked_only:
@@ -231,6 +264,9 @@ async def get_task_knowledge(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="knowledge service unavailable",
         ) from exc
+
+    if results:
+        knowledge_cache_repository.set_cached(cache_key, results)
 
     return TaskKnowledgeResponse(
         task_id=task.id,
