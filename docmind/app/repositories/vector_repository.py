@@ -3,6 +3,49 @@ from sqlmodel import Session, select
 
 from app.models.document_chunk import DocumentChunk
 
+# RRF 常数与各路权重。向量一路语义质量更高，词法一路只作为补充；
+# 调参时可以通过 hybrid_search 的参数覆盖（评测脚本用）。
+RRF_K = 60
+VECTOR_ROUTE_WEIGHT = 1.0
+LEXICAL_ROUTE_WEIGHT = 0.5
+
+
+def _combine_lexical_ranks(
+        ranks_by_route: list[dict[int, int]],
+) -> dict[int, int]:
+    """同一 chunk 在多个词法路线里只保留最好的名次。
+
+    tsvector 和关键词两路高度重叠；如果不合并，一个 chunk 同时命中
+    两路会拿到两份 RRF 分，轻易压过语义更相关的片段。
+    """
+    merged: dict[int, int] = {}
+    for ranks in ranks_by_route:
+        for doc_id, rank in ranks.items():
+            current = merged.get(doc_id)
+            if current is None or rank < current:
+                merged[doc_id] = rank
+    return merged
+
+
+def _rrf_scores(
+        vector_ranks: dict[int, int],
+        lexical_ranks: dict[int, int],
+        *,
+        vector_weight: float = VECTOR_ROUTE_WEIGHT,
+        lexical_weight: float = LEXICAL_ROUTE_WEIGHT,
+        k: int = RRF_K,
+) -> dict[int, float]:
+    """向量 + 单路词法的加权 RRF。"""
+    scores: dict[int, float] = {}
+    for doc_id in set(vector_ranks) | set(lexical_ranks):
+        score = 0.0
+        if doc_id in vector_ranks:
+            score += vector_weight / (k + vector_ranks[doc_id])
+        if doc_id in lexical_ranks:
+            score += lexical_weight / (k + lexical_ranks[doc_id])
+        scores[doc_id] = score
+    return scores
+
 
 class VectorRepository:
     def __init__(self, session: Session):
@@ -113,14 +156,21 @@ class VectorRepository:
             top_k: int = 5,
             document_id: int | None = None,
             candidate_k: int = 20,  # 每路召回数量
+            vector_weight: float = VECTOR_ROUTE_WEIGHT,
+            lexical_weight: float = LEXICAL_ROUTE_WEIGHT,
+            merge_lexical_routes: bool = True,
     ) -> list[tuple]:
         """
-        混合检索：三路召回 + RRF 融合排序。
+        混合检索：向量 + 词法（tsvector / 关键词）+ 加权 RRF。
 
           - 向量一路：语义检索（中文长句最稳，走 HNSW）；
           - tsvector 一路：Postgres 全文（英文/术语 token，中文不分词）；
           - 关键词一路：用查询侧抽出的关键词做中文/精确子串 + trigram 模糊匹配，
             命中关键词越多排越前。
+
+        默认把 tsvector 和关键词两路合并成一个“词法路”：同一 chunk
+        只取两路里更好的名次，避免重复加分。`merge_lexical_routes=False`
+        保留旧的三路独立计数行为，供 A/B 评测使用。
 
         为什么关键词一路不用纯 word_similarity：
         pg_trgm 对中文不生成 trigram（show_trgm('板块二') 返回空），
@@ -128,7 +178,6 @@ class VectorRepository:
 
         keywords 为空时退回整句匹配，保持旧行为。
         """
-        k = 60  # RRF 常数
 
         # 1. 向量检索（粗排，取 candidate_k 个）
         vec_sql = """
@@ -214,18 +263,28 @@ class VectorRepository:
         tg_rows = self.session.execute(text(tg_sql), tg_params).fetchall()
         tg_ranks = {row.id: row.rank for row in tg_rows}
 
-        # 4. RRF 融合：三路排名取倒数和（1/(k+rank)）
-        all_ids = set(vec_ranks) | set(kw_ranks) | set(tg_ranks)
-        rrf_scores = {}
-        for doc_id in all_ids:
-            score = 0
-            if doc_id in vec_ranks:
-                score += 1 / (k + vec_ranks[doc_id])
-            if doc_id in kw_ranks:
-                score += 1 / (k + kw_ranks[doc_id])
-            if doc_id in tg_ranks:
-                score += 1 / (k + tg_ranks[doc_id])
-            rrf_scores[doc_id] = score
+        # 4. RRF 融合：向量 + 词法（合并后）加权倒数和。
+        if merge_lexical_routes:
+            lexical_ranks = _combine_lexical_ranks([kw_ranks, tg_ranks])
+            rrf_scores = _rrf_scores(
+                vec_ranks,
+                lexical_ranks,
+                vector_weight=vector_weight,
+                lexical_weight=lexical_weight,
+            )
+        else:
+            # 旧行为：tsvector / 关键词两路独立计数，供 A/B 评测。
+            rrf_scores = {}
+            all_ids = set(vec_ranks) | set(kw_ranks) | set(tg_ranks)
+            for doc_id in all_ids:
+                score = 0.0
+                if doc_id in vec_ranks:
+                    score += vector_weight / (RRF_K + vec_ranks[doc_id])
+                if doc_id in kw_ranks:
+                    score += lexical_weight / (RRF_K + kw_ranks[doc_id])
+                if doc_id in tg_ranks:
+                    score += lexical_weight / (RRF_K + tg_ranks[doc_id])
+                rrf_scores[doc_id] = score
 
         sorted_ids = sorted(
             rrf_scores,
