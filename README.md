@@ -123,23 +123,27 @@ compose 已内置 `http://api-docmind:8001`。
 提交后投递到 Redis 事件队列；TaskFlow 的常驻 worker 消费并更新任务关联：
 
 - `document.deleted`：关联文档和任务来源标记失效；
-- `document.reindexed`：`chunk_index` 可能变化，旧版引用标记 stale；
+- `document.reindexed`：关联文档自动升级索引版本（无需重新关联）；
+  来源引用登记到 `document_remap_jobs`，由迁移 worker 按 `chunk_uid`
+  找回新的 `chunk_index`；
 - `document.renamed`：刷新 TaskFlow 里的文件名快照；
-- `document.restored`：清除失效并更新索引版本。
+- `document.restored`：关联文档恢复有效；来源引用同样交给迁移 worker。
 
 任务关联表保存 `index_version` / `invalidated_at`，事件消费用
 `processed_events` 去重、用 `last_event_at` 防乱序。队列不可达时事件留在
 outbox，由 DocMind worker 每 60 秒补投；TaskFlow 读路径遇到 404 也会懒修复。
+迁移 worker 代表用户签发短时 JWT 调用 DocMind，失败按指数退避重试。
 
-本地启动事件 worker：
+本地启动事件 / 迁移 worker：
 
 ```bash
 make worker-taskflow          # 消费文档生命周期事件
+make worker-taskflow-remap    # 重建索引后按 chunk_uid 迁移来源引用
 make worker-docmind-events    # 消费用户注销事件
 ```
 
-compose 里的 `worker-taskflow` / `worker-docmind-events` 会自动启动；
-`DOC_EVENT_REDIS_URL` 指向 `redis-docmind`。
+compose 里的 `worker-taskflow` / `worker-taskflow-remap` /
+`worker-docmind-events` 会自动启动；`DOC_EVENT_REDIS_URL` 指向 `redis-docmind`。
 
 ### 账户安全与配额
 

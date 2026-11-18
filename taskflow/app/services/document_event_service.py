@@ -24,6 +24,7 @@ from app.models.task import Task
 from app.models.task_document import TaskDocument
 from app.repositories import knowledge_cache_repository
 from app.services.account_service import handle_user_deleted_completed
+from app.services.remap_service import enqueue_remap_job
 from app.services.usage_service import handle_usage_reported
 from shared.event_queue import Event
 from sqlalchemy import func, or_, select, update
@@ -147,6 +148,12 @@ def handle_document_reindexed(session: Session, event: Event) -> None:
             source_last_event_at=event_time,
         )
     )
+    enqueue_remap_job(
+        session,
+        document_id=event.aggregate_id,
+        user_id=event.user_id,
+        target_version=new_version,
+    )
     knowledge_cache_repository.invalidate_user(event.user_id)
 
 
@@ -201,7 +208,7 @@ def handle_document_restored(session: Session, event: Event) -> None:
     )
 
     # 恢复同样会重建片段，旧 chunk_index 可能漂移。
-    # 关联是文档级的，直接清失效；来源引用交给迁移流程按 chunk_uid 解析，
+    # 关联是文档级的，直接清失效；来源引用交给读路径按 chunk_uid 解析，
     # 不能用“文档恢复”直接宣布旧下标有效。
     session.execute(
         update(Task)
@@ -218,6 +225,12 @@ def handle_document_restored(session: Session, event: Event) -> None:
             source_invalid_reason="document_reindexed",
             source_last_event_at=restored_at,
         )
+    )
+    enqueue_remap_job(
+        session,
+        document_id=event.aggregate_id,
+        user_id=event.user_id,
+        target_version=version,
     )
     knowledge_cache_repository.invalidate_user(event.user_id)
 

@@ -15,6 +15,7 @@ from shared.middleware import request_logging_middleware
 # 测试里的 create_all 和 alembic autogenerate 才能看到它。
 import app.models.outbox_event  # noqa: F401,E402
 import app.models.processed_event  # noqa: F401,E402
+import app.models.remap_job  # noqa: F401,E402
 from app.api import auth, health
 from app.api.ai import router as ai_router
 from app.api.conversations import router as conversations_router

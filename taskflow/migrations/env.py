@@ -35,6 +35,7 @@ import app.models.conversation  # noqa: F401
 import app.models.llm_usage  # noqa: F401
 import app.models.outbox_event  # noqa: F401
 import app.models.processed_event  # noqa: F401
+import app.models.remap_job  # noqa: F401
 import app.models.task  # noqa: F401
 import app.models.task_document  # noqa: F401
 import app.models.user  # noqa: F401

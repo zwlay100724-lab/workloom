@@ -38,6 +38,15 @@ class Settings(BaseConfig):
     # 注销卡住多久后重复投递 user.deleted。
     account_deletion_stale_minutes: int = 10
 
+    # 重建索引后的来源引用迁移 worker。
+    remap_poll_seconds: float = 2.0
+    remap_batch_size: int = 200
+    remap_max_attempts: int = 5
+    remap_retry_base_delay: float = 5.0
+    remap_stale_minutes: int = 10
+    # worker 代表用户调用 DocMind 时签发的短时 token 有效期。
+    remap_token_expire_minutes: int = 5
+
     # 共享 Redis 里没有用户上限时的兜底配额。
     default_monthly_token_quota: int = 1_000_000
 

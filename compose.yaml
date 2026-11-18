@@ -108,6 +108,33 @@ services:
       redis-docmind:
         condition: service_healthy
 
+  # 重建索引后的来源引用迁移 worker。
+  # 独立进程：调用 DocMind 的 HTTP 超时不能阻塞事件消费。
+  worker-taskflow-remap:
+    build:
+      context: .
+      dockerfile: taskflow/Dockerfile
+    command: ["python", "-m", "app.remap_worker"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://taskflow:${POSTGRES_TASKFLOW_PASSWORD:-taskflow}@postgres-taskflow:5432/taskflow
+      REDIS_URL: redis://redis-taskflow:6379/0
+      SHARED_REDIS_URL: redis://redis-docmind:6379/0
+      AUTH_FAIL_CLOSED: "true"
+      DOCMIND_BASE_URL: http://api-docmind:8001
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?请在 .env 中设置 JWT_SECRET_KEY}
+      LLM_API_KEY: ${LLM_API_KEY:?请在 .env 中设置 LLM_API_KEY}
+      LLM_MODEL_ID: ${LLM_MODEL_ID:-deepseek-v4-pro}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.deepseek.com}
+    depends_on:
+      postgres-taskflow:
+        condition: service_healthy
+      redis-taskflow:
+        condition: service_healthy
+      redis-docmind:
+        condition: service_healthy
+      api-docmind:
+        condition: service_started
+
   # ── DocMind ──────────────────────────────────────────────
   postgres-docmind:
     # 官方 postgres 镜像没有 pgvector；这个镜像自带 vector 扩展。
