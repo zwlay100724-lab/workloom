@@ -108,6 +108,7 @@ def search(
             document_id=document.metadata["document_id"],
             filename=filenames.get(document.metadata["document_id"]),
             chunk_index=document.metadata.get("chunk_index", 0),
+            chunk_uid=document.metadata.get("chunk_uid"),
             page=document.metadata.get("page"),
             content=document.page_content,
             score=_score(document.metadata),

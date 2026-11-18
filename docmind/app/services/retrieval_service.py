@@ -77,6 +77,7 @@ class RetrievalService:
                     "source": chunk.source,
                     "page": chunk.page,
                     "chunk_index": chunk.chunk_index,
+                    "chunk_uid": chunk.chunk_uid,
                     "document_id": chunk.document_id,
                     "distance": distance,  # 距离，越小越相似
                     "similarity": 1 - distance,  # 相似度，越大越相似
@@ -180,6 +181,7 @@ class RetrievalService:
                     "source": chunk.source,
                     "page": chunk.page,
                     "chunk_index": chunk.chunk_index,
+                    "chunk_uid": chunk.chunk_uid,
                     "document_id": chunk.document_id,
                     "rrf_score": rrf_score,  # 越大越靠前
                 }
@@ -278,6 +280,7 @@ class RetrievalService:
                     "source": chunk.source,
                     "page": chunk.page,
                     "chunk_index": chunk.chunk_index,
+                    "chunk_uid": chunk.chunk_uid,
                     "document_id": chunk.document_id,
                     "distance": distance,
                     "similarity": 1 - distance,

@@ -19,6 +19,9 @@ class DocumentChunk(SQLModel, table=True):
     # 不建外键：users 表属 taskflow 的库（跨库无 FK，同 documents.user_id 的做法）
     user_id: int = Field(index=True)
     content: str  # Chunk 文本内容
+    # 内容哈希：跨索引版本的稳定身份。重建后内容未变的片段 chunk_uid 不变，
+    # TaskFlow 可以按它找回新的 chunk_index，而不依赖旧序号。
+    chunk_uid: str | None = Field(default=None, index=True, max_length=64)
     chunk_index: int  # 文档内的片段序号
     page: int | None = Field(default=None)  # 来自 PDF 的哪一页
     source: str | None = Field(default=None)  # 来源文件名

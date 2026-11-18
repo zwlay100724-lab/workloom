@@ -17,6 +17,7 @@ from shared.exceptions import (
 # 保留你项目原来的 import 路径即可。
 from app.api.deps import AccessTokenDep, CurrentUserDep, SessionDep
 from app.clients.docmind import (
+    DocMindChunkNotFoundError,
     DocMindClient,
     DocMindDocumentNotFoundError,
     DocMindUnavailableError,
@@ -448,14 +449,17 @@ async def preview_tasks_from_document(
     preview_tasks: list[PreviewTask] = []
     for spec in specs:
         snippet = None
+        chunk_uid = None
         if spec.source_chunk_index is not None:
             chunk = chunk_by_index.get(spec.source_chunk_index)
             if chunk is not None:
                 snippet = chunk["content"][:SOURCE_SNIPPET_MAX_CHARS]
+                chunk_uid = chunk.get("chunk_uid")
         preview_tasks.append(
             PreviewTask(
                 **spec.model_dump(),
                 source_snippet=snippet,
+                source_chunk_uid=chunk_uid,
                 already_exists=(
                     task_service.normalize_generated_title(spec.title)
                     in existing_titles
@@ -494,6 +498,45 @@ async def apply_generated_tasks(
     )
     filename = document.get("filename")
 
+    # 把用户确认的 chunk_index 换成稳定 uid：重建索引后位置会变，
+    # 内容哈希不会。索引在 preview 之后被重建时，这里可能拿不到旧片段，
+    # 直接让用户重新预览，而不是写入一个不可追溯的引用。
+    chunk_indices = sorted({
+        spec.source_chunk_index
+        for spec in payload.tasks
+        if spec.source_chunk_index is not None
+    })
+    chunk_uid_by_index: dict[int, str | None] = {}
+    if chunk_indices:
+        try:
+            chunks = await asyncio.gather(*(
+                docmind.get_chunk(
+                    document_id=payload.document_id,
+                    chunk_index=chunk_index,
+                    token=access_token,
+                )
+                for chunk_index in chunk_indices
+            ))
+        except DocMindChunkNotFoundError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="source chunk not found; please regenerate preview",
+            ) from exc
+        except DocMindUnavailableError as exc:
+            logger.warning(
+                "load source chunks failed document_id=%s error=%s",
+                payload.document_id,
+                exc,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="knowledge service unavailable",
+            ) from exc
+        chunk_uid_by_index = {
+            chunk_index: chunk.get("chunk_uid")
+            for chunk_index, chunk in zip(chunk_indices, chunks)
+        }
+
     tasks, skipped = task_service.create_generated_tasks(
         session=session,
         owner_id=current_user.id,
@@ -501,6 +544,7 @@ async def apply_generated_tasks(
         document_id=payload.document_id,
         filename=filename,
         index_version=document.get("index_version", 0),
+        chunk_uid_by_index=chunk_uid_by_index,
     )
 
     return GenerateTasksResponse(

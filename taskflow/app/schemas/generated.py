@@ -39,6 +39,8 @@ class GeneratedTaskList(BaseModel):
 class PreviewTask(GeneratedTaskSpec):
     # 引用片段的摘要：让用户在确认前能看到任务依据的原文。
     source_snippet: str | None = None
+    # 引用片段的稳定身份；apply 阶段会由服务端重新校验并写入任务。
+    source_chunk_uid: str | None = None
     # 同一文档已经生成过同标题任务；前端默认不勾选，apply 时也会跳过。
     already_exists: bool = False
 

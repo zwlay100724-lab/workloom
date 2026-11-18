@@ -14,6 +14,7 @@ from datetime import date
 import pytest
 from app.api.ai import BASE_TASK_QUERIES, TASK_QUERY_TOP_K
 from app.clients.docmind import (
+    DocMindChunkNotFoundError,
     DocMindDocumentNotFoundError,
     DocMindUnavailableError,
     get_docmind_client,
@@ -47,6 +48,7 @@ class FakeDocMindClient:
                 "document_id": 7,
                 "filename": "plan.pdf",
                 "chunk_index": 0,
+                "chunk_uid": "uid-0",
                 "page": 1,
                 "content": "下周一前完成登录接口联调。",
                 "score": 0.9,
@@ -55,6 +57,7 @@ class FakeDocMindClient:
                 "document_id": 7,
                 "filename": "plan.pdf",
                 "chunk_index": 5,
+                "chunk_uid": "uid-5",
                 "page": 3,
                 "content": "测试用例需要覆盖 token 过期场景。",
                 "score": 0.8,
@@ -65,6 +68,7 @@ class FakeDocMindClient:
         self.error_by_query = error_by_query
         self.document_calls: list[dict] = []
         self.search_calls: list[dict] = []
+        self.chunk_calls: list[dict] = []
 
     async def get_document(self, *, document_id: int, token: str) -> dict:
         self.document_calls.append({
@@ -74,6 +78,25 @@ class FakeDocMindClient:
         if self.document_error is not None:
             raise self.document_error
         return self.document
+
+    async def get_chunk(
+            self,
+            *,
+            document_id: int,
+            chunk_index: int,
+            token: str,
+    ) -> dict:
+        self.chunk_calls.append({
+            "document_id": document_id,
+            "chunk_index": chunk_index,
+            "token": token,
+        })
+        for chunk in self.chunks:
+            if chunk["chunk_index"] == chunk_index:
+                result = dict(chunk)
+                result["document_id"] = document_id
+                return result
+        raise DocMindChunkNotFoundError("chunk not found")
 
     async def search(
             self,
@@ -508,7 +531,11 @@ def test_apply_creates_tasks_with_citations(
     assert first["source_document_id"] == 7
     assert first["source_filename"] == "plan.pdf"
     assert first["source_chunk_index"] == 0
+    # apply 阶段把位置换成稳定内容哈希，重建索引后仍能找回。
+    assert first["source_chunk_uid"] == "uid-0"
     assert data["tasks"][1]["source_chunk_index"] == 5
+    assert data["tasks"][1]["source_chunk_uid"] == "uid-5"
+    assert {call["chunk_index"] for call in fakes[0].chunk_calls} == {0, 5}
 
     # 任务自动关联文档，便于后续 linked_only 检索。
     for task in data["tasks"]:
@@ -575,6 +602,20 @@ def test_apply_docmind_unavailable_returns_502(
     assert response.json()["error"]["message"] == (
         "knowledge service unavailable"
     )
+
+
+def test_apply_source_chunk_missing_returns_409(
+        client,
+        alice_headers,
+        fakes,
+):
+    # preview 和 apply 之间文档被重建，旧 chunk_index 已不存在。
+    fakes[0].chunks = []
+
+    response = _apply(client, alice_headers, [_spec()])
+
+    assert response.status_code == 409
+    assert "regenerate preview" in response.json()["error"]["message"]
 
 
 # ── 去重 ───────────────────────────────────────────────────────────────

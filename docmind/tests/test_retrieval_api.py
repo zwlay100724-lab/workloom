@@ -19,6 +19,7 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel
 
 AUTH_USER_ID = 1
+CHUNK_UID = "a" * 64
 
 
 @pytest.fixture
@@ -136,6 +137,7 @@ def chunk(
         metadata={
             "document_id": document_id,
             "chunk_index": chunk_index,
+            "chunk_uid": CHUNK_UID,
             "page": page,
             "source": "handbook.pdf",
             **scores,
@@ -184,6 +186,7 @@ def test_vector_search_maps_fields(
             "document_id": document_id,
             "filename": "handbook.pdf",
             "chunk_index": 3,
+            "chunk_uid": CHUNK_UID,
             "page": 5,
             "content": "员工每年享有 10 天带薪年假。",
             "score": 0.875,

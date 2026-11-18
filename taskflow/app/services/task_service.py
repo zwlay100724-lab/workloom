@@ -296,6 +296,7 @@ def create_generated_tasks(
         document_id: int,
         filename: str | None,
         index_version: int = 0,
+        chunk_uid_by_index: dict[int, str | None] | None = None,
 ) -> tuple[list[Task], list[GeneratedTaskSpec]]:
     """把「文档 → 任务」的结果一次性落库，并跳过已存在的任务。
 
@@ -327,6 +328,7 @@ def create_generated_tasks(
         return [], skipped
 
     event_at = datetime.utcnow()
+    chunk_uids = chunk_uid_by_index or {}
     tasks = [
         Task(
             title=spec.title,
@@ -337,6 +339,11 @@ def create_generated_tasks(
             source_document_id=document_id,
             source_filename=filename,
             source_chunk_index=spec.source_chunk_index,
+            source_chunk_uid=(
+                chunk_uids.get(spec.source_chunk_index)
+                if spec.source_chunk_index is not None
+                else None
+            ),
             source_index_version=index_version,
             source_last_event_at=event_at,
         )

@@ -3,6 +3,7 @@ from datetime import datetime
 from time import perf_counter
 
 from shared.quota import add_usage, check_quota
+from sqlalchemy import and_
 from sqlalchemy import delete as sa_delete
 from sqlmodel import Session, func, select
 
@@ -341,6 +342,88 @@ class DocumentService:
         if chunk is None:
             raise ChunkNotFoundError()
         return chunk
+
+    def get_chunk_by_uid(
+            self,
+            document_id: int,
+            user_id: int,
+            chunk_uid: str,
+    ) -> tuple[Document, DocumentChunk | None]:
+        """按内容哈希在当前索引里找片段。
+
+        重建索引后 ``chunk_index`` 会变化，但内容未变的片段 ``chunk_uid``
+        不变。调用方拿到新的 ``chunk_index`` 后就能更新任务引用。
+
+        同一文档里如果有多段完全相同的文本，它们的 uid 相同；
+        这里取序号最小的那条，保证结果稳定。
+
+        文档和片段在一条 JOIN 里取回：重建索引提交前后，
+        index_version 和 chunk 必须来自同一个快照。
+        """
+        row = self.session.exec(
+            select(Document, DocumentChunk)
+            .outerjoin(
+                DocumentChunk,
+                and_(
+                    DocumentChunk.document_id == Document.id,
+                    DocumentChunk.user_id == user_id,
+                    DocumentChunk.chunk_uid == chunk_uid,
+                ),
+            )
+            .where(
+                Document.id == document_id,
+                Document.user_id == user_id,
+                Document.deleted_at.is_(None),
+            )
+            .order_by(DocumentChunk.chunk_index.asc())
+        ).first()
+
+        if row is None:
+            # 不存在、不属于当前用户、已软删除，统一 404。
+            raise DocumentNotFoundError()
+
+        document, chunk = row
+        return document, chunk
+
+    def get_chunks_by_uids(
+            self,
+            document_id: int,
+            user_id: int,
+            chunk_uids: list[str],
+    ) -> tuple[Document, dict[str, DocumentChunk]]:
+        """批量按内容哈希解析片段，供后台迁移 worker 使用。
+
+        返回 (document, {chunk_uid: chunk})。同一 uid 出现多次时保留
+        序号最小的那条。文档不存在 / 不属于当前用户 / 已软删除时 404。
+        """
+        uids = list(dict.fromkeys(chunk_uids))
+        rows = self.session.exec(
+            select(Document, DocumentChunk)
+            .outerjoin(
+                DocumentChunk,
+                and_(
+                    DocumentChunk.document_id == Document.id,
+                    DocumentChunk.user_id == user_id,
+                    DocumentChunk.chunk_uid.in_(uids),
+                ),
+            )
+            .where(
+                Document.id == document_id,
+                Document.user_id == user_id,
+                Document.deleted_at.is_(None),
+            )
+            .order_by(DocumentChunk.chunk_index.asc())
+        ).all()
+
+        if not rows:
+            raise DocumentNotFoundError()
+
+        document = rows[0][0]
+        chunks: dict[str, DocumentChunk] = {}
+        for _, chunk in rows:
+            if chunk is not None and chunk.chunk_uid not in chunks:
+                chunks[chunk.chunk_uid] = chunk
+        return document, chunks
 
     def delete_document(self, doc_id: int, user_id: int) -> Document:
         """软删除文档：保留元数据，硬删片段/向量，并在同一事务写 outbox。

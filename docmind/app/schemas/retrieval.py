@@ -24,6 +24,8 @@ class RetrievedChunk(BaseModel):
     document_id: int
     filename: str | None = None
     chunk_index: int
+    # 内容哈希：跨索引版本稳定，供调用方保存为引用身份。
+    chunk_uid: str | None = None
     page: int | None = None
     content: str
     # vector 模式是相似度（越大越相关）；hybrid 模式是 RRF 融合分。

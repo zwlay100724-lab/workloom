@@ -8,12 +8,13 @@ from app.core.config import settings
 from app.main import app
 from app.models.document import Document
 from app.models.document_chunk import DocumentChunk
+from app.rag.chunk_identity import compute_chunk_uid
 from fastapi.testclient import TestClient
 from shared.db.database import get_session
 from shared.security import create_access_token
 from sqlalchemy import create_engine
 from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel
+from sqlmodel import Session, SQLModel, select
 
 AUTH_USER_ID = 1
 
@@ -73,10 +74,12 @@ def _seed_document(
         session.refresh(document)
 
         for index in range(chunk_count):
+            content = f"第 {index} 段内容"
             session.add(DocumentChunk(
                 document_id=document.id,
                 user_id=user_id,
-                content=f"第 {index} 段内容",
+                content=content,
+                chunk_uid=compute_chunk_uid(content),
                 chunk_index=index,
                 page=index + 1,
             ))
@@ -118,6 +121,7 @@ def test_get_single_chunk(client, engine):
     assert response.json() == {
         "document_id": document_id,
         "chunk_index": 2,
+        "chunk_uid": compute_chunk_uid("第 2 段内容"),
         "page": 3,
         "content": "第 2 段内容",
     }
@@ -155,6 +159,121 @@ def test_other_users_document_returns_404(client, engine):
 def test_missing_document_returns_404(client):
     response = client.get(
         "/documents/999999/chunks",
+        headers=auth_headers(),
+    )
+
+    assert response.status_code == 404
+
+
+def test_resolve_chunk_by_uid_returns_current_index(client, engine):
+    document_id = _seed_document(engine, chunk_count=3)
+    chunk_uid = compute_chunk_uid("第 1 段内容")
+
+    response = client.get(
+        f"/documents/{document_id}/chunks/by-uid/{chunk_uid}",
+        headers=auth_headers(),
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["resolved"] is True
+    assert data["chunk_index"] == 1
+    assert data["page"] == 2
+    assert data["index_version"] == 0
+
+
+def test_resolve_chunk_by_uid_survives_reindex(client, engine):
+    document_id = _seed_document(engine, chunk_count=3)
+    chunk_uid = compute_chunk_uid("第 2 段内容")
+
+    # 模拟重建索引后片段顺序变化：内容不变，chunk_index 从 2 变成 0。
+    with Session(engine) as session:
+        chunks = session.exec(
+            select(DocumentChunk)
+            .where(DocumentChunk.document_id == document_id)
+            .order_by(DocumentChunk.chunk_index.asc())
+        ).all()
+        for offset, chunk in enumerate(chunks):
+            chunk.chunk_index = 100 + offset
+        session.commit()
+        for index, chunk in enumerate(reversed(chunks)):
+            chunk.chunk_index = index
+        session.commit()
+
+    response = client.get(
+        f"/documents/{document_id}/chunks/by-uid/{chunk_uid}",
+        headers=auth_headers(),
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["resolved"] is True
+    assert data["chunk_index"] == 0
+
+
+def test_batch_resolve_chunk_uids(client, engine):
+    document_id = _seed_document(engine, chunk_count=3)
+    found = compute_chunk_uid("第 1 段内容")
+    missing = "0" * 64
+
+    response = client.post(
+        f"/documents/{document_id}/chunks/resolve-by-uid",
+        headers=auth_headers(),
+        json={"chunk_uids": [found, missing]},
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["document_id"] == document_id
+    assert data["index_version"] == 0
+    assert data["results"] == [
+        {
+            "chunk_uid": found,
+            "resolved": True,
+            "chunk_index": 1,
+            "page": 2,
+        },
+        {
+            "chunk_uid": missing,
+            "resolved": False,
+            "chunk_index": None,
+            "page": None,
+        },
+    ]
+
+
+def test_batch_resolve_other_users_document_returns_404(client, engine):
+    document_id = _seed_document(engine, user_id=2, chunk_count=1)
+
+    response = client.post(
+        f"/documents/{document_id}/chunks/resolve-by-uid",
+        headers=auth_headers(),
+        json={"chunk_uids": [compute_chunk_uid("第 0 段内容")]},
+    )
+
+    assert response.status_code == 404
+
+
+def test_resolve_chunk_by_uid_marks_content_changed(client, engine):
+    document_id = _seed_document(engine, chunk_count=1)
+
+    response = client.get(
+        f"/documents/{document_id}/chunks/by-uid/{'0' * 64}",
+        headers=auth_headers(),
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["resolved"] is False
+    assert data["chunk_index"] is None
+
+
+def test_resolve_other_users_document_returns_404(client, engine):
+    document_id = _seed_document(engine, user_id=2, chunk_count=1)
+    chunk_uid = compute_chunk_uid("第 0 段内容")
+
+    response = client.get(
+        f"/documents/{document_id}/chunks/by-uid/{chunk_uid}",
         headers=auth_headers(),
     )
 

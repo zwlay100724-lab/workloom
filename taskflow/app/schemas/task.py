@@ -41,6 +41,7 @@ class TaskResponse(BaseModel):
     source_document_id: int | None = None
     source_filename: str | None = None
     source_chunk_index: int | None = None
+    source_chunk_uid: str | None = None
     source_index_version: int | None = None
     source_invalidated_at: datetime | None = None
     source_invalid_reason: str | None = None

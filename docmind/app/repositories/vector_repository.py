@@ -2,6 +2,7 @@ from sqlalchemy import text
 from sqlmodel import Session, select
 
 from app.models.document_chunk import DocumentChunk
+from app.rag.chunk_identity import compute_chunk_uid
 
 # RRF 常数与各路权重。向量一路语义质量更高，词法一路只作为补充；
 # 调参时可以通过 hybrid_search 的参数覆盖（评测脚本用）。
@@ -73,6 +74,8 @@ class VectorRepository:
                 document_id=document_id,
                 user_id=user_id,
                 content=chunk.page_content,
+                # 内容不变 → uid 不变；重建索引只需要给新片段重新打 uid。
+                chunk_uid=compute_chunk_uid(chunk.page_content),
                 chunk_index=chunk.metadata.get("chunk_index", 0),
                 page=chunk.metadata.get("page"),
                 source=chunk.metadata.get("source"),

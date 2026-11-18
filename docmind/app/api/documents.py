@@ -22,6 +22,10 @@ from app.api.deps import CurrentUserIdDep
 from app.queue import get_index_queue
 from app.queue.base import IndexJob, IndexQueue, QueueUnavailableError
 from app.schemas.document import (
+    ChunkUidBatchResolveRequest,
+    ChunkUidBatchResolveResponse,
+    ChunkUidResolutionItem,
+    ChunkUidResolutionResponse,
     DocumentChunkListResponse,
     DocumentChunkResponse,
     DocumentListResponse,
@@ -362,6 +366,68 @@ def list_document_chunks(
             for item in items
         ],
         total=total,
+    )
+
+
+@router.get(
+    "/{doc_id}/chunks/by-uid/{chunk_uid}",
+    response_model=ChunkUidResolutionResponse,
+)
+def resolve_document_chunk_by_uid(
+    doc_id: int,
+    chunk_uid: Annotated[str, PathParam(min_length=1, max_length=64)],
+    current_user_id: CurrentUserIdDep,
+    session: Session = Depends(get_session),
+):
+    """按内容哈希解析当前索引里的 chunk_index。
+
+    文档不存在 / 不属于当前用户返回 404；文档还在但内容已变化时
+    返回 200 + ``resolved=false``，调用方据此提示“原文已变化”。
+    """
+    document, chunk = DocumentService(session).get_chunk_by_uid(
+        doc_id,
+        current_user_id,
+        chunk_uid,
+    )
+    return ChunkUidResolutionResponse(
+        document_id=doc_id,
+        index_version=document.index_version,
+        resolved=chunk is not None,
+        chunk_uid=chunk_uid,
+        chunk_index=chunk.chunk_index if chunk is not None else None,
+        page=chunk.page if chunk is not None else None,
+    )
+
+
+@router.post(
+    "/{doc_id}/chunks/resolve-by-uid",
+    response_model=ChunkUidBatchResolveResponse,
+)
+def resolve_document_chunks_by_uid(
+    doc_id: int,
+    payload: ChunkUidBatchResolveRequest,
+    current_user_id: CurrentUserIdDep,
+    session: Session = Depends(get_session),
+):
+    """批量按 chunk_uid 解析当前 chunk_index，供 TaskFlow 后台迁移使用。"""
+    document, chunks = DocumentService(session).get_chunks_by_uids(
+        doc_id,
+        current_user_id,
+        payload.chunk_uids,
+    )
+    results = []
+    for chunk_uid in dict.fromkeys(payload.chunk_uids):
+        chunk = chunks.get(chunk_uid)
+        results.append(ChunkUidResolutionItem(
+            chunk_uid=chunk_uid,
+            resolved=chunk is not None,
+            chunk_index=chunk.chunk_index if chunk is not None else None,
+            page=chunk.page if chunk is not None else None,
+        ))
+    return ChunkUidBatchResolveResponse(
+        document_id=doc_id,
+        index_version=document.index_version,
+        results=results,
     )
 
 

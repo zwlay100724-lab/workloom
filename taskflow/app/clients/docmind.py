@@ -25,6 +25,10 @@ class DocMindDocumentNotFoundError(Exception):
     """文档不存在，或不属于当前用户（DocMind 统一返回 404）。"""
 
 
+class DocMindChunkNotFoundError(Exception):
+    """文档存在，但指定的 chunk_index 已不存在（重建索引后可能出现）。"""
+
+
 class DocMindClient:
     def __init__(
             self,
@@ -125,6 +129,109 @@ class DocMindClient:
             )
 
         return response.json().get("results", [])
+
+    async def get_chunk(
+            self,
+            *,
+            document_id: int,
+            chunk_index: int,
+            token: str,
+    ) -> dict:
+        """取单个片段元数据（内容、页码、稳定 chunk_uid）。
+
+        ``apply`` 阶段用它把用户确认的 chunk_index 换成稳定的 uid，
+        避免只依赖会随重建索引变化的位置。
+        """
+        response = await self._request(
+            "GET",
+            f"/documents/{document_id}/chunks/{chunk_index}",
+            token=token,
+        )
+
+        if response.status_code == 404:
+            raise DocMindChunkNotFoundError(
+                f"chunk {chunk_index} of document {document_id} not found"
+            )
+        if response.status_code >= 400:
+            logger.warning(
+                "docmind returned %s base_url=%s",
+                response.status_code,
+                self.base_url,
+            )
+            raise DocMindUnavailableError(
+                f"DocMind returned {response.status_code}"
+            )
+
+        return response.json()
+
+    async def resolve_chunk_uid(
+            self,
+            *,
+            document_id: int,
+            chunk_uid: str,
+            token: str,
+    ) -> dict:
+        """按内容哈希查询片段在当前索引里的 chunk_index。
+
+        文档还在但内容已变化时，DocMind 返回 200 + resolved=false；
+        文档不存在 / 不属于当前用户才返回 404。
+        """
+        response = await self._request(
+            "GET",
+            f"/documents/{document_id}/chunks/by-uid/{chunk_uid}",
+            token=token,
+        )
+
+        if response.status_code == 404:
+            raise DocMindDocumentNotFoundError(
+                f"document {document_id} not found"
+            )
+        if response.status_code >= 400:
+            logger.warning(
+                "docmind returned %s base_url=%s",
+                response.status_code,
+                self.base_url,
+            )
+            raise DocMindUnavailableError(
+                f"DocMind returned {response.status_code}"
+            )
+
+        return response.json()
+
+    async def resolve_chunk_uids(
+            self,
+            *,
+            document_id: int,
+            chunk_uids: list[str],
+            token: str,
+    ) -> dict:
+        """批量按内容哈希解析当前 chunk_index。
+
+        返回 ``{"document_id", "index_version", "results": [...]}``；
+        results 里 resolved=false 表示内容已变化。
+        """
+        response = await self._request(
+            "POST",
+            f"/documents/{document_id}/chunks/resolve-by-uid",
+            token=token,
+            json={"chunk_uids": chunk_uids},
+        )
+
+        if response.status_code == 404:
+            raise DocMindDocumentNotFoundError(
+                f"document {document_id} not found"
+            )
+        if response.status_code >= 400:
+            logger.warning(
+                "docmind returned %s base_url=%s",
+                response.status_code,
+                self.base_url,
+            )
+            raise DocMindUnavailableError(
+                f"DocMind returned {response.status_code}"
+            )
+
+        return response.json()
 
     async def get_document(
             self,
