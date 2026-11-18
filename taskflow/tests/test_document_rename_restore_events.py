@@ -21,7 +21,9 @@ def test_renamed_event_updates_filename_snapshots(test_engine):
     assert task.source_filename == "会议纪要-v2.pdf"
 
 
-def test_restore_event_clears_invalidation_and_updates_version(test_engine):
+def test_restore_event_clears_link_and_marks_source_for_resolution(
+        test_engine,
+):
     seed(test_engine, index_version=2)
     deleted_at = datetime.utcnow()
     process_event(
@@ -41,10 +43,13 @@ def test_restore_event_clears_invalidation_and_updates_version(test_engine):
     )
 
     task, link = load(test_engine)
+    # 关联是文档级的：恢复后立即有效。
     assert link.invalidated_at is None
     assert link.index_version == 3
-    assert task.source_invalidated_at is None
-    assert task.source_index_version == 3
+    # 来源引用是片段级的：恢复也重建了片段，不能直接宣布旧下标有效。
+    assert task.source_invalidated_at is not None
+    assert task.source_invalid_reason == "document_reindexed"
+    assert task.source_index_version == 2
 
 
 def test_old_delete_event_cannot_override_restore(test_engine):

@@ -2,14 +2,19 @@
 
 四个事件：
 - document.deleted   文档软删除 → 关联/来源标失效
-- document.reindexed 重建索引 → 旧版本引用标 stale
+- document.reindexed 重建索引 → 关联自动升级版本；来源引用待按 uid 解析
 - document.renamed   重命名 → 刷新文件名快照
-- document.restored  恢复完成 → 清除失效并更新版本
+- document.restored  恢复完成 → 关联清失效；来源引用待按 uid 解析
 
 一致性策略：
 - processed_events 去重（同一 event_id 只处理一次）；
 - last_event_at 防乱序（旧删除事件不能覆盖新恢复事件）；
 - index_version 判断引用是否基于旧版切分。
+
+关联是文档级的：重建索引后文档还在，关联本身仍然成立，直接升级到
+新版本并清掉“重建”造成的失效即可；文档删除造成的失效不会被清掉。
+来源引用是片段级的：由读路径按 source_chunk_uid 向 DocMind 实时解析，
+这里只负责把它标记为待更新。
 """
 import logging
 from datetime import datetime, timezone
@@ -93,6 +98,10 @@ def handle_document_reindexed(session: Session, event: Event) -> None:
     new_version = int(event.payload["new_index_version"])
     event_time = _event_time(event, "reindexed_at")
 
+    # 关联是文档级引用：文档还在，只是索引版本变了。
+    # 直接升级到新版本并清掉“重建”造成的失效，用户不必重新关联。
+    # 只清 document_reindexed，绝不清 document_deleted——
+    # 迟到的重建事件不能把已删除文档的关联重新变成有效。
     session.execute(
         update(TaskDocument)
         .where(
@@ -103,10 +112,15 @@ def handle_document_reindexed(session: Session, event: Event) -> None:
                 TaskDocument.last_event_at.is_(None),
                 TaskDocument.last_event_at <= event_time,
             ),
+            or_(
+                TaskDocument.invalid_reason.is_(None),
+                TaskDocument.invalid_reason == "document_reindexed",
+            ),
         )
         .values(
-            invalidated_at=event_time,
-            invalid_reason="document_reindexed",
+            index_version=new_version,
+            invalidated_at=None,
+            invalid_reason=None,
             last_event_at=event_time,
         )
     )
@@ -120,6 +134,11 @@ def handle_document_reindexed(session: Session, event: Event) -> None:
             or_(
                 Task.source_last_event_at.is_(None),
                 Task.source_last_event_at <= event_time,
+            ),
+            # 文档已删除的引用不能被迟到的重建事件覆盖。
+            or_(
+                Task.source_invalid_reason.is_(None),
+                Task.source_invalid_reason != "document_deleted",
             ),
         )
         .values(
@@ -181,6 +200,9 @@ def handle_document_restored(session: Session, event: Event) -> None:
         )
     )
 
+    # 恢复同样会重建片段，旧 chunk_index 可能漂移。
+    # 关联是文档级的，直接清失效；来源引用交给迁移流程按 chunk_uid 解析，
+    # 不能用“文档恢复”直接宣布旧下标有效。
     session.execute(
         update(Task)
         .where(
@@ -192,9 +214,8 @@ def handle_document_restored(session: Session, event: Event) -> None:
             ),
         )
         .values(
-            source_invalidated_at=None,
-            source_invalid_reason=None,
-            source_index_version=version,
+            source_invalidated_at=restored_at,
+            source_invalid_reason="document_reindexed",
             source_last_event_at=restored_at,
         )
     )
