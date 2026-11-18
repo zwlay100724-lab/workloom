@@ -345,6 +345,65 @@ async function loadKnowledge(taskId, linkedOnly) {
   }
 }
 
+function summaryHtml(data) {
+  const citations = (data.citations || []).map(
+    (citation) => `
+      <div class="knowledge-item"
+           data-doc="${citation.document_id}"
+           data-chunk="${citation.chunk_index}"
+           data-file="${esc(citation.filename || "")}">
+        <div class="knowledge-snippet">${esc(citation.text)}</div>
+        <div class="knowledge-meta">
+          <span class="chip">${esc(citation.filename || `文档 ${citation.document_id}`)}</span>
+          <span class="chip">#${citation.chunk_index}</span>
+          ${citation.page != null ? `<span class="chip">第 ${citation.page} 页</span>` : ""}
+        </div>
+      </div>`
+  ).join("");
+
+  return `
+    <div class="summary-card">${esc(data.summary)}</div>
+    <div class="row" style="margin-top:8px">
+      <span class="muted">
+        依据 ${(data.citations || []).length} 条引用 ·
+        检索 ${(data.sources || []).length} 个片段
+        ${data.mode ? `（${esc(data.mode)}）` : ""}
+      </span>
+      <button class="ghost small" id="summary-regenerate" type="button">
+        重新生成
+      </button>
+    </div>
+    ${
+      citations
+        ? `<div class="knowledge-list" style="margin-top:8px">${citations}</div>`
+        : ""
+    }`;
+}
+
+async function loadKnowledgeSummary(taskId, panel) {
+  const container = $("#knowledge-summary", panel);
+  if (!container) return;
+  const button = $("#knowledge-summary-btn", panel);
+  const linkedOnly = Boolean($("#linked-only", panel)?.checked);
+  if (button) button.disabled = true;
+  container.innerHTML = `<p class="muted">生成摘要中…（可能需要 30–60 秒）</p>`;
+  try {
+    const data = await api(
+      "taskflow",
+      `/tasks/${taskId}/knowledge/summary?top_k=8&linked_only=${linkedOnly ? "true" : "false"}`,
+      { method: "POST" }
+    );
+    container.innerHTML = summaryHtml(data);
+    $("#summary-regenerate", container)?.addEventListener("click", () => {
+      loadKnowledgeSummary(taskId, panel);
+    });
+  } catch (error) {
+    container.innerHTML = `<p class="error">${esc(error.message)}</p>`;
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
 function renderTaskDetail(task, links, knowledge, knowledgeError) {
   const panel = $("#task-detail");
   const linkedIds = new Set(links.map((link) => link.document_id));
@@ -454,6 +513,22 @@ function renderTaskDetail(task, links, knowledge, knowledgeError) {
             : knowledgeHtml(knowledge)
         }
       </div>
+    </div>
+
+    <div class="detail-section">
+      <h4 style="display:flex;justify-content:space-between;align-items:center">
+        <span>任务摘要</span>
+        <span class="muted"
+              style="text-transform:none;letter-spacing:0;font-size:12px">
+          按需生成，可能需要 30–60 秒
+        </span>
+      </h4>
+      <div class="row">
+        <button class="small" id="knowledge-summary-btn" type="button">
+          总结这些资料
+        </button>
+      </div>
+      <div id="knowledge-summary" style="margin-top:10px"></div>
     </div>`;
 
   $("#toggle-done", panel).addEventListener("click", async () => {
@@ -527,7 +602,12 @@ function renderTaskDetail(task, links, knowledge, knowledgeError) {
     loadKnowledge(task.id, event.target.checked);
   });
 
+  $("#knowledge-summary-btn", panel).addEventListener("click", () => {
+    loadKnowledgeSummary(task.id, panel);
+  });
+
   bindKnowledgeItems($("#knowledge-results", panel));
+  bindKnowledgeItems($("#knowledge-summary", panel));
 }
 
 /* ── 文档列表 ───────────────────────────────────────────────── */

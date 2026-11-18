@@ -408,3 +408,14 @@ textarea { resize: vertical; min-height: 56px; width: 100%; }
   max-width: min(640px, 92vw);
 }
 .toast.error { background: #991b1b; }
+
+/* ── 任务摘要 ────────────────────────────────────────── */
+.summary-card {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-left: 3px solid #2563eb;
+  border-radius: 8px;
+  background: #f8fafc;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}

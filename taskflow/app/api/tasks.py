@@ -14,7 +14,12 @@ from app.clients.docmind import (
 )
 from app.core.config import settings
 from app.repositories import knowledge_cache_repository
-from app.schemas.knowledge import KnowledgeChunk, TaskKnowledgeResponse
+from app.schemas.knowledge import (
+    KnowledgeChunk,
+    KnowledgeCitation,
+    TaskKnowledgeResponse,
+    TaskKnowledgeSummaryResponse,
+)
 from app.schemas.task import TaskCreate, TaskPatch, TaskResponse, TaskUpdate
 from app.schemas.task_document import (
     TaskDocumentLinkRequest,
@@ -22,6 +27,7 @@ from app.schemas.task_document import (
     TaskDocumentResponse,
 )
 from app.services import task_service
+from app.services.llm_service import LLMServiceDep
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -275,6 +281,143 @@ async def get_task_knowledge(
             KnowledgeChunk.model_validate(item)
             for item in results
         ],
+    )
+
+
+@router.post(
+    "/{task_id}/knowledge/summary",
+    response_model=TaskKnowledgeSummaryResponse,
+)
+async def summarize_task_knowledge(
+    task_id: Annotated[int, Path(ge=1)],
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    access_token: AccessTokenDep,
+    llm_service: LLMServiceDep,
+    docmind: Annotated[DocMindClient, Depends(get_docmind_client)],
+    top_k: Annotated[int, Query(ge=1, le=20)] = 8,
+    linked_only: Annotated[bool, Query()] = False,
+):
+    """按需生成任务摘要：检索片段 → LLM 总结 + 引用。
+
+    只在用户点击「总结这些资料」时调用；不要让打开任务详情自动触发，
+    因为推理模型一次总结可能需要几十秒。
+    """
+    task = task_service.get_task(
+        session=session,
+        task_id=task_id,
+        owner_id=current_user.id,
+    )
+    query = " ".join(
+        part
+        for part in (task.title, task.description)
+        if part
+    ).strip()
+    mode = settings.docmind_retrieval_mode
+
+    document_ids: list[int] = []
+    if linked_only:
+        links = task_service.list_task_documents(
+            session=session,
+            task_id=task_id,
+            owner_id=current_user.id,
+        )
+        document_ids = [
+            link.document_id
+            for link in links
+            if link.invalidated_at is None
+        ][:MAX_LINKED_DOCUMENTS_FOR_SEARCH]
+
+        if not document_ids:
+            return TaskKnowledgeSummaryResponse(
+                task_id=task.id,
+                query=query,
+                summary="资料不足：该任务还没有关联可用文档。",
+                citations=[],
+                sources=[],
+                mode=mode,
+            )
+
+    try:
+        if linked_only:
+            results = await _search_linked_documents(
+                docmind=docmind,
+                access_token=access_token,
+                query=query,
+                document_ids=document_ids,
+                top_k=top_k,
+                mode=mode,
+                session=session,
+                task_id=task_id,
+                owner_id=current_user.id,
+            )
+        else:
+            results = await docmind.search(
+                query=query,
+                token=access_token,
+                top_k=top_k,
+                mode=mode,
+            )
+    except DocMindUnavailableError as exc:
+        logger.warning(
+            "task knowledge summary search failed task_id=%s error=%s",
+            task_id,
+            exc,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="knowledge service unavailable",
+        ) from exc
+
+    sources = [
+        KnowledgeChunk.model_validate(item)
+        for item in results
+    ]
+    if not results:
+        return TaskKnowledgeSummaryResponse(
+            task_id=task.id,
+            query=query,
+            summary="资料不足：知识库中没有找到与该任务相关的片段。",
+            citations=[],
+            sources=[],
+            mode=mode,
+        )
+
+    summary = await llm_service.summarize_task_knowledge(
+        title=task.title,
+        description=task.description,
+        chunks=results,
+        user_id=current_user.id,
+    )
+
+    chunk_by_key = {
+        (item["document_id"], item["chunk_index"]): item
+        for item in results
+    }
+    citations: list[KnowledgeCitation] = []
+    for citation in summary.citations:
+        chunk = chunk_by_key.get(
+            (citation.document_id, citation.chunk_index)
+        )
+        if chunk is None:
+            continue
+        citations.append(
+            KnowledgeCitation(
+                document_id=citation.document_id,
+                chunk_index=citation.chunk_index,
+                text=citation.text,
+                filename=chunk.get("filename"),
+                page=chunk.get("page"),
+            )
+        )
+
+    return TaskKnowledgeSummaryResponse(
+        task_id=task.id,
+        query=query,
+        summary=summary.summary,
+        citations=citations,
+        sources=sources,
+        mode=mode,
     )
 
 

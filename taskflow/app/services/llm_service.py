@@ -24,6 +24,7 @@ from app.llm.client import LLMResult, get_chat_model, llm_client
 from app.llm.message_converters import load_history_as_langchain_messages
 from app.llm.prompts import (
     TASK_FROM_DOCUMENT_SYSTEM_PROMPT,
+    TASK_KNOWLEDGE_SUMMARY_SYSTEM_PROMPT,
     TASK_PLANNING_SYSTEM_PROMPT,
     TASKFLOW_TOOL_SYSTEM_PROMPT,
     build_task_extraction_system_prompt,
@@ -37,6 +38,7 @@ from app.schemas.ai import (
     TaskPlan,
 )
 from app.schemas.generated import GeneratedTaskList, GeneratedTaskSpec
+from app.schemas.knowledge import TaskKnowledgeSummarySpec
 from app.services.conversation_service import (
     ConversationService,
     get_conversation_service,
@@ -59,6 +61,9 @@ from shared.quota import add_usage, check_quota
 from sqlmodel import Session
 
 logger = logging.getLogger(__name__)
+
+# 任务摘要的输出上限：推理模型的 reasoning 也计入 completion_tokens。
+TASK_SUMMARY_MAX_TOKENS = 3000
 
 # ═══════════════════════════════════════════════════════════════════════
 # 1. LangChain 辅助函数:用量读取
@@ -610,6 +615,92 @@ class LLMService:
                 updates["source_chunk_index"] = None
             specs.append(spec.model_copy(update=updates))
         return specs
+
+    async def summarize_task_knowledge(
+        self,
+        *,
+        title: str,
+        description: str | None,
+        chunks: list[dict],
+        user_id: int,
+    ) -> TaskKnowledgeSummarySpec:
+        """基于检索片段生成任务摘要，并丢弃非法引用。
+
+        chunks 来自 DocMind /retrieval/search，至少包含
+        document_id / chunk_index / content。模型只允许引用这些片段；
+        不存在的 (document_id, chunk_index) 一律丢弃。
+        """
+        context = "\n\n".join(
+            (
+                f"[document_id={chunk['document_id']} "
+                f"chunk_index={chunk['chunk_index']}] "
+                f"{chunk['content']}"
+            )
+            for chunk in chunks
+        )
+        messages = [
+            {
+                "role": "system",
+                "content": TASK_KNOWLEDGE_SUMMARY_SYSTEM_PROMPT,
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"任务标题：{title}\n"
+                    f"任务描述：{description or '无'}\n\n"
+                    f"文档片段：\n{context}"
+                ),
+            },
+        ]
+
+        data: TaskKnowledgeSummarySpec | None = None
+        last_error: ValidationError | None = None
+        for attempt in range(2):
+            result, _usage = await generate(
+                messages=messages,
+                user_id=user_id,
+                session=self.session,
+                temperature=0.1,
+                max_tokens=TASK_SUMMARY_MAX_TOKENS,
+                response_format=(
+                    {"type": "json_object"}
+                    if attempt == 0
+                    else None
+                ),
+            )
+            try:
+                data = TaskKnowledgeSummarySpec.model_validate_json(
+                    result.content
+                )
+                break
+            except ValidationError as exc:
+                last_error = exc
+
+        if data is None:
+            raise LLMStructuredOutputError(
+                "LLM returned invalid knowledge summary"
+            ) from last_error
+
+        valid_keys = {
+            (chunk["document_id"], chunk["chunk_index"])
+            for chunk in chunks
+        }
+        citations = []
+        seen: set[tuple[int, int]] = set()
+        for citation in data.citations:
+            key = (citation.document_id, citation.chunk_index)
+            if key not in valid_keys or key in seen:
+                logger.warning(
+                    "dropping invalid knowledge citation "
+                    "document_id=%s chunk_index=%s",
+                    citation.document_id,
+                    citation.chunk_index,
+                )
+                continue
+            seen.add(key)
+            citations.append(citation)
+
+        return data.model_copy(update={"citations": citations})
 
     async def chat_with_tools(
         self,

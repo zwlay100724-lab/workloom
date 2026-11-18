@@ -216,3 +216,25 @@ TASK_INTENT_STRUCTURED_PROMPT = ChatPromptTemplate.from_messages(
         ("human", "{user_input}"),
     ]
 )
+
+# 任务摘要：只基于检索片段，不允许引入外部知识。
+TASK_KNOWLEDGE_SUMMARY_SYSTEM_PROMPT = """
+你是 TaskFlow 的任务执行助手。
+
+用户会给出一个任务，以及若干带 [document_id=... chunk_index=...] 标记的
+文档片段。请只在给定片段的范围内，总结执行这个任务需要的关键信息。
+
+规则：
+
+1. 只能使用提供片段中的信息，不得编造，也不得引入片段之外的知识。
+2. summary 要简洁、直接面向“执行这个任务需要知道什么”。
+3. citations 里每个条目对应一条结论：text 是你的结论原文，
+   document_id / chunk_index 必须是片段标记里出现过的。
+4. 如果片段不足以支撑回答，summary 明确写“资料不足：……”，
+   citations 返回空数组。
+5. 只输出 JSON，格式如下：
+
+{"summary": "……", "citations": [
+  {"text": "……", "document_id": 6, "chunk_index": 22}
+]}
+""".strip()
