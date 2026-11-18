@@ -257,18 +257,27 @@ async function openTask(taskId) {
   state.selectedTaskId = taskId;
   renderTasks();
 
-  const task = state.tasks.find((item) => item.id === taskId);
-  if (!task) return;
-
   const sequence = ++detailSeq;
   const panel = $("#task-detail");
   panel.innerHTML = `<p class="muted">加载中…</p>`;
 
-  const [linksResult, knowledgeResult] = await Promise.allSettled([
+  const [detailResult, linksResult, knowledgeResult] = await Promise.allSettled([
+    // 详情可能已经被后台迁移 worker 更新，用最新快照渲染来源引用状态。
+    api("taskflow", `/tasks/${taskId}`),
     api("taskflow", `/tasks/${taskId}/documents`),
     api("taskflow", `/tasks/${taskId}/knowledge?top_k=5`),
   ]);
   if (sequence !== detailSeq) return;
+
+  const task =
+    detailResult.status === "fulfilled"
+      ? detailResult.value
+      : state.tasks.find((item) => item.id === taskId);
+  if (!task) return;
+
+  // 用最新详情更新列表里的快照，避免下次打开还是旧的引用状态。
+  const taskIndex = state.tasks.findIndex((item) => item.id === taskId);
+  if (taskIndex >= 0) state.tasks[taskIndex] = task;
 
   const links =
     linksResult.status === "fulfilled" ? linksResult.value.items || [] : [];
@@ -287,9 +296,12 @@ async function openTask(taskId) {
 function invalidationText(reason) {
   if (reason === "document_deleted") return "来源文档已删除";
   if (reason === "document_reindexed") {
-    return "文档已重建索引，引用可能失效，请重新生成或重新关联";
+    return "文档已重建索引，引用正在自动更新；如果无法定位原片段，请重新生成";
   }
   if (reason === "document_not_found") return "来源文档已不存在";
+  if (reason === "document_content_changed") {
+    return "原文内容已变化，无法定位到新索引中的对应片段，请重新生成";
+  }
   return "引用已失效";
 }
 
@@ -454,7 +466,7 @@ function renderTaskDetail(task, links, knowledge, knowledgeError) {
                  }
                </div>
                <button class="ghost small" id="view-citation" type="button"
-                       ${task.source_chunk_index == null || task.source_invalid_reason === "document_deleted" ? "disabled" : ""}>
+                       ${task.source_chunk_index == null || task.source_invalid_reason ? "disabled" : ""}>
                  查看原文
                </button>
              </div>
