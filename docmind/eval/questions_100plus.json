@@ -1,0 +1,946 @@
+[
+  {
+    "question": "作者建议接下来用多少周，围绕什么方式学习？",
+    "ground_truth": "用10~14周，围绕一条主项目逐步升级，每学一个模块马上把它接进同一个项目。",
+    "expected_source": "29be5aa3bdf74cba83e743d2cc0e8f28.pdf",
+    "expected_filename": "实战学习路线.pdf",
+    "source_document_id": 6,
+    "source_chunk_index": 0
+  },
+  {
+    "question": "作者建议整个学习周期只做哪三个项目？",
+    "ground_truth": "TaskFlow后端系统、DocMind企业知识库、WorkMate企业AI Agent。",
+    "expected_source": "29be5aa3bdf74cba83e743d2cc0e8f28.pdf",
+    "expected_filename": "实战学习路线.pdf",
+    "source_document_id": 6,
+    "source_chunk_index": 1
+  },
+  {
+    "question": "阶段1的目标是什么？时间是多少？",
+    "ground_truth": "目标是能独立开发一个像样的Python Web后端，时间是2周。",
+    "expected_source": "29be5aa3bdf74cba83e743d2cc0e8f28.pdf",
+    "expected_filename": "实战学习路线.pdf",
+    "source_document_id": 6,
+    "source_chunk_index": 2
+  },
+  {
+    "question": "第一个项目TaskFlow的功能包括哪些？",
+    "ground_truth": "注册、登录、JWT鉴权、创建任务、修改任务、删除任务、查询任务、分页、关键字搜索、任务状态过滤、用户只能操作自己的任务、任务截止时间、后台发送提醒、Redis缓存、Docker部署。",
+    "expected_source": "29be5aa3bdf74cba83e743d2cc0e8f28.pdf",
+    "expected_filename": "实战学习路线.pdf",
+    "source_document_id": 6,
+    "source_chunk_index": 3
+  },
+  {
+    "question": "作者建议将数据库从什么调整为什么？",
+    "ground_truth": "从SQLModel + MySQL调整为SQLModel + PostgreSQL。",
+    "expected_source": "29be5aa3bdf74cba83e743d2cc0e8f28.pdf",
+    "expected_filename": "实战学习路线.pdf",
+    "source_document_id": 6,
+    "source_chunk_index": 4
+  },
+  {
+    "question": "根据片段，为什么建议学pgvector而不是MySQL？",
+    "ground_truth": "因为之后做RAG时可以直接使用，用户、文档、对话、Embedding都可以放进一套数据库，且pgvector官方Python支持SQLModel，提供HNSW、IVFFlat等向量索引能力。",
+    "expected_source": "29be5aa3bdf74cba83e743d2cc0e8f28.pdf",
+    "expected_filename": "实战学习路线.pdf",
+    "source_document_id": 6,
+    "source_chunk_index": 5
+  },
+  {
+    "question": "第14天结束后第一个里程碑是什么？",
+    "ground_truth": "可以直接把整个项目运行起来，这是第一个里程碑。",
+    "expected_source": "29be5aa3bdf74cba83e743d2cc0e8f28.pdf",
+    "expected_filename": "实战学习路线.pdf",
+    "source_document_id": 6,
+    "source_chunk_index": 6
+  },
+  {
+    "question": "在实现Tool Calling时，需要调用哪三个Python函数？",
+    "ground_truth": "get_weather()、query_database()、create_task()。",
+    "expected_source": "29be5aa3bdf74cba83e743d2cc0e8f28.pdf",
+    "expected_filename": "实战学习路线.pdf",
+    "source_document_id": 6,
+    "source_chunk_index": 7
+  },
+  {
+    "question": "LangChain v1官方把什么作为标准Agent构建入口？",
+    "ground_truth": "create_agent，底层运行在LangGraph runtime上。",
+    "expected_source": "29be5aa3bdf74cba83e743d2cc0e8f28.pdf",
+    "expected_filename": "实战学习路线.pdf",
+    "source_document_id": 6,
+    "source_chunk_index": 8
+  },
+  {
+    "question": "DocMind企业知识库支持上传哪些文件格式？",
+    "ground_truth": "PDF、Word、Markdown。",
+    "expected_source": "29be5aa3bdf74cba83e743d2cc0e8f28.pdf",
+    "expected_filename": "实战学习路线.pdf",
+    "source_document_id": 6,
+    "source_chunk_index": 9
+  },
+  {
+    "question": "Ragas 官方定位是什么？",
+    "ground_truth": "把 AI 应用从“感觉不错”转变成系统化评估循环，并提供面向 RAG 与 Agent workflow 的指标。",
+    "expected_source": "29be5aa3bdf74cba83e743d2cc0e8f28.pdf",
+    "expected_filename": "实战学习路线.pdf",
+    "source_document_id": 6,
+    "source_chunk_index": 12
+  },
+  {
+    "question": "LangGraph 的 Interrupt 功能是什么？",
+    "ground_truth": "暂停图执行、等待人工输入后恢复。",
+    "expected_source": "29be5aa3bdf74cba83e743d2cc0e8f28.pdf",
+    "expected_filename": "实战学习路线.pdf",
+    "source_document_id": 6,
+    "source_chunk_index": 13
+  },
+  {
+    "question": "当用户说“帮我给经理发邮件申请年假”时，Agent 依次执行了哪些操作？",
+    "ground_truth": "查询公司年假规则、查询用户剩余年假、生成邮件、暂停、用户确认、发送邮件。",
+    "expected_source": "29be5aa3bdf74cba83e743d2cc0e8f28.pdf",
+    "expected_filename": "实战学习路线.pdf",
+    "source_document_id": 6,
+    "source_chunk_index": 14
+  },
+  {
+    "question": "根据片段，MCP Server 的主要作用是什么？",
+    "ground_truth": "MCP Server 可以把文件、数据库、API 等能力标准化暴露给 AI 应用。",
+    "expected_source": "29be5aa3bdf74cba83e743d2cc0e8f28.pdf",
+    "expected_filename": "实战学习路线.pdf",
+    "source_document_id": 6,
+    "source_chunk_index": 15
+  },
+  {
+    "question": "在片段 2 展示的技术架构中，用于评估（Evaluation）的组件是什么？",
+    "ground_truth": "Ragas",
+    "expected_source": "29be5aa3bdf74cba83e743d2cc0e8f28.pdf",
+    "expected_filename": "实战学习路线.pdf",
+    "source_document_id": 6,
+    "source_chunk_index": 16
+  },
+  {
+    "question": "片段中提到 Deep Agents 本身包括了哪些高阶能力？",
+    "ground_truth": "subagent、context management、skills",
+    "expected_source": "29be5aa3bdf74cba83e743d2cc0e8f28.pdf",
+    "expected_filename": "实战学习路线.pdf",
+    "source_document_id": 6,
+    "source_chunk_index": 17
+  },
+  {
+    "question": "根据片段，当前 Anthropic 关于 long-running agents 的工程实践重点包括哪些方面？",
+    "ground_truth": "长任务的上下文连续性、运行环境和 harness 设计",
+    "expected_source": "29be5aa3bdf74cba83e743d2cc0e8f28.pdf",
+    "expected_filename": "实战学习路线.pdf",
+    "source_document_id": 6,
+    "source_chunk_index": 18
+  },
+  {
+    "question": "根据片段，建议先完成哪条学习主线再补 Java？",
+    "ground_truth": "FastAPI → RAG → Agent → MCP → 毕业项目",
+    "expected_source": "29be5aa3bdf74cba83e743d2cc0e8f28.pdf",
+    "expected_filename": "实战学习路线.pdf",
+    "source_document_id": 6,
+    "source_chunk_index": 19
+  },
+  {
+    "question": "根据片段，每天学习3小时的情况下，各部分学习时间应该如何分配？",
+    "ground_truth": "30分钟数据结构/算法，30-45分钟官方文档/理论，1.5-2小时写项目，15分钟Debug总结，项目时间必须最长。",
+    "expected_source": "29be5aa3bdf74cba83e743d2cc0e8f28.pdf",
+    "expected_filename": "实战学习路线.pdf",
+    "source_document_id": 6,
+    "source_chunk_index": 20
+  },
+  {
+    "question": "片段中建议学习Redis时应该按照什么顺序进行？",
+    "ground_truth": "为什么需要它? → 不用它会发生什么? → 写一个最小 Demo → 接进当前项目 → 故意制造一个 Bug → 解决 Bug → 写 README → 准备面试问题",
+    "expected_source": "29be5aa3bdf74cba83e743d2cc0e8f28.pdf",
+    "expected_filename": "实战学习路线.pdf",
+    "source_document_id": 6,
+    "source_chunk_index": 21
+  },
+  {
+    "question": "片段中建议第一周在TaskFlow项目中完成哪些具体任务？",
+    "ground_truth": "给 /tasks 接口加缓存，修改 Task 后发现缓存不一致，设计缓存删除策略，制造缓存穿透，解决，压测有缓存和没缓存的性能差异。",
+    "expected_source": "29be5aa3bdf74cba83e743d2cc0e8f28.pdf",
+    "expected_filename": "实战学习路线.pdf",
+    "source_document_id": 6,
+    "source_chunk_index": 22
+  },
+  {
+    "question": "片段中列出了哪些用户和任务相关的API端点？",
+    "ground_truth": "POST /users, POST /login, POST /tasks, GET /tasks, PUT /tasks/{id}, DELETE /tasks/{id}",
+    "expected_source": "29be5aa3bdf74cba83e743d2cc0e8f28.pdf",
+    "expected_filename": "实战学习路线.pdf",
+    "source_document_id": 6,
+    "source_chunk_index": 23
+  },
+  {
+    "question": "根据片段，作者认为真正应该形成的能力链是什么？",
+    "ground_truth": "Python → Web 后端能力 → 数据库能力 → LLM 调用能力 → RAG → RAG Evaluation → Agent → LangGraph → MCP → AI 系统工程化 → Multi-Agent / Deep Agents",
+    "expected_source": "29be5aa3bdf74cba83e743d2cc0e8f28.pdf",
+    "expected_filename": "实战学习路线.pdf",
+    "source_document_id": 6,
+    "source_chunk_index": 24
+  },
+  {
+    "question": "阶段6的核心目标是什么？",
+    "ground_truth": "自己实现一个Company MCP Server，把文档搜索、员工查询、任务创建、邮件发送等能力暴露给Agent。",
+    "expected_source": "5fa75364a146416da7c85364c50dbe63.pdf",
+    "expected_filename": "MCP.pdf",
+    "source_document_id": 7,
+    "source_chunk_index": 0
+  },
+  {
+    "question": "片段2结尾提出的问题是什么？",
+    "ground_truth": "如果Tool不在Agent所在的Python项目里怎么办。",
+    "expected_source": "5fa75364a146416da7c85364c50dbe63.pdf",
+    "expected_filename": "MCP.pdf",
+    "source_document_id": 7,
+    "source_chunk_index": 1
+  },
+  {
+    "question": "在片段3中，Agent除了本地Python Tool外，还可以连接到哪些外部系统？",
+    "ground_truth": "公司文档系统、HR系统、邮件系统、任务系统。",
+    "expected_source": "5fa75364a146416da7c85364c50dbe63.pdf",
+    "expected_filename": "MCP.pdf",
+    "source_document_id": 7,
+    "source_chunk_index": 2
+  },
+  {
+    "question": "阶段6被拆分为哪几个学习板块？请列出板块编号和名称。",
+    "ground_truth": "MCP-1：MCP到底解决什么问题，建立第一个MCP Server；MCP-2：MCP Server/Client架构，MCP Client调用Server；MCP-3：Tools，把DocMind/RAG能力暴露出来；MCP-4：Resources/Prompts，完整理解MCP三类能力；MCP-5：LangGraph + MCP，Agent调用MCP Tool；MCP-6：企业级MCP，Company MCP Server + 权限/错误/部署。",
+    "expected_source": "5fa75364a146416da7c85364c50dbe63.pdf",
+    "expected_filename": "MCP.pdf",
+    "source_document_id": 7,
+    "source_chunk_index": 3
+  },
+  {
+    "question": "在片段5中，MCP Server包含哪三类能力？",
+    "ground_truth": "Tool、Resource、Prompt。",
+    "expected_source": "5fa75364a146416da7c85364c50dbe63.pdf",
+    "expected_filename": "MCP.pdf",
+    "source_document_id": 7,
+    "source_chunk_index": 4
+  },
+  {
+    "question": "在MCP-2阶段，第一步需要做什么？",
+    "ground_truth": "验证 MCP Server 能否正常运行。",
+    "expected_source": "5fa75364a146416da7c85364c50dbe63.pdf",
+    "expected_filename": "MCP.pdf",
+    "source_document_id": 7,
+    "source_chunk_index": 5
+  },
+  {
+    "question": "在MCP运行机制中，Agent是如何知道Server提供了哪些工具的？",
+    "ground_truth": "通过Tool Discovery，Agent可以通过MCP获取Server提供的能力。",
+    "expected_source": "5fa75364a146416da7c85364c50dbe63.pdf",
+    "expected_filename": "MCP.pdf",
+    "source_document_id": 7,
+    "source_chunk_index": 6
+  },
+  {
+    "question": "在MCP-3阶段，应该如何将现有DocMind系统与MCP结合？",
+    "ground_truth": "把现有系统能力包装成MCP Tools，不要重写整个RAG。",
+    "expected_source": "5fa75364a146416da7c85364c50dbe63.pdf",
+    "expected_filename": "MCP.pdf",
+    "source_document_id": 7,
+    "source_chunk_index": 7
+  },
+  {
+    "question": "关于MCP Tool的设计，片段中强调的原则是什么？",
+    "ground_truth": "MCP Tool是接口层，不应该把整个业务逻辑塞进Tool函数。",
+    "expected_source": "5fa75364a146416da7c85364c50dbe63.pdf",
+    "expected_filename": "MCP.pdf",
+    "source_document_id": 7,
+    "source_chunk_index": 8
+  },
+  {
+    "question": "第三个Tool的名称是什么？它连接了哪个项目？",
+    "ground_truth": "create_task，连接TaskFlow项目。",
+    "expected_source": "5fa75364a146416da7c85364c50dbe63.pdf",
+    "expected_filename": "MCP.pdf",
+    "source_document_id": 7,
+    "source_chunk_index": 9
+  },
+  {
+    "question": "在片段描述的用户请经理发邮件申请年假的流程中，MCP search_document 和 MCP query_employee 分别用来做什么？",
+    "ground_truth": "search_document 查询公司年假制度，query_employee 查询剩余年假",
+    "expected_source": "5fa75364a146416da7c85364c50dbe63.pdf",
+    "expected_filename": "MCP.pdf",
+    "source_document_id": 7,
+    "source_chunk_index": 10
+  },
+  {
+    "question": "根据片段，MCP Server 的能力包括哪些？",
+    "ground_truth": "Tool、Resources、Prompts",
+    "expected_source": "5fa75364a146416da7c85364c50dbe63.pdf",
+    "expected_filename": "MCP.pdf",
+    "source_document_id": 7,
+    "source_chunk_index": 11
+  },
+  {
+    "question": "根据片段，Prompt 可以理解成什么？",
+    "ground_truth": "Server 提供的一组可复用提示模板/工作流入口",
+    "expected_source": "5fa75364a146416da7c85364c50dbe63.pdf",
+    "expected_filename": "MCP.pdf",
+    "source_document_id": 7,
+    "source_chunk_index": 12
+  },
+  {
+    "question": "根据片段，MCP-5 板块的核心实战目标是什么？",
+    "ground_truth": "让你已经学过的 LangGraph Agent 调用 MCP Server",
+    "expected_source": "5fa75364a146416da7c85364c50dbe63.pdf",
+    "expected_filename": "MCP.pdf",
+    "source_document_id": 7,
+    "source_chunk_index": 13
+  },
+  {
+    "question": "根据片段，MCP Tool 的调用流程是什么？",
+    "ground_truth": "Agent 通过 MCP Client 调用 MCP Server 上的 Tool",
+    "expected_source": "5fa75364a146416da7c85364c50dbe63.pdf",
+    "expected_filename": "MCP.pdf",
+    "source_document_id": 7,
+    "source_chunk_index": 14
+  },
+  {
+    "question": "在 MCP-6 板块中，普通员工可以使用哪些工具？",
+    "ground_truth": "普通员工可以使用 search_document、query_employee(自己)、create_task。",
+    "expected_source": "5fa75364a146416da7c85364c50dbe63.pdf",
+    "expected_filename": "MCP.pdf",
+    "source_document_id": 7,
+    "source_chunk_index": 15
+  },
+  {
+    "question": "Tool Schema 写得很差会导致哪些问题？",
+    "ground_truth": "LLM 不知道什么时候应该调用、LLM 不知道参数怎么传、LLM 容易传错参数。",
+    "expected_source": "5fa75364a146416da7c85364c50dbe63.pdf",
+    "expected_filename": "MCP.pdf",
+    "source_document_id": 7,
+    "source_chunk_index": 16
+  },
+  {
+    "question": "MCP Server 发生业务异常时，推荐的错误处理流程是什么？",
+    "ground_truth": "MCP Server -> 业务异常 -> 结构化错误 -> MCP Client -> Agent，然后 Agent 决定重试、换方案或告诉用户。",
+    "expected_source": "5fa75364a146416da7c85364c50dbe63.pdf",
+    "expected_filename": "MCP.pdf",
+    "source_document_id": 7,
+    "source_chunk_index": 17
+  },
+  {
+    "question": "在 Company MCP Server 的工程思想中，MCP Tool 应该调用什么层，而不是什么？",
+    "ground_truth": "应该调用 Service -> Repository / RAG / External API，而不是将所有业务逻辑直接放在 MCP Tool 中。",
+    "expected_source": "5fa75364a146416da7c85364c50dbe63.pdf",
+    "expected_filename": "MCP.pdf",
+    "source_document_id": 7,
+    "source_chunk_index": 18
+  },
+  {
+    "question": "最终综合业务场景中，用户提出的请求是什么？Agent 如何响应？",
+    "ground_truth": "用户请求：帮我查一下公司年假政策，如果我还有年假，就帮我给经理写一封申请下周三休假的邮件，发之前让我确认。Agent 通过调用 MCP Tool 查询年假政策和员工年假信息，生成邮件，经用户确认后发送。",
+    "expected_source": "5fa75364a146416da7c85364c50dbe63.pdf",
+    "expected_filename": "MCP.pdf",
+    "source_document_id": 7,
+    "source_chunk_index": 19
+  },
+  {
+    "question": "在该周学习计划中，Day 5 的学习板块和当天必须完成的内容分别是什么？",
+    "ground_truth": "学习板块：LangGraph + MCP；当天必须完成：LangGraph Agent 调用 MCP。",
+    "expected_source": "5fa75364a146416da7c85364c50dbe63.pdf",
+    "expected_filename": "MCP.pdf",
+    "source_document_id": 7,
+    "source_chunk_index": 20
+  },
+  {
+    "question": "根据片段，RAG Service 是否需要因为引入 MCP 而重写？",
+    "ground_truth": "不需要，RAG Service 本身不用因为 MCP 而重写。",
+    "expected_source": "5fa75364a146416da7c85364c50dbe63.pdf",
+    "expected_filename": "MCP.pdf",
+    "source_document_id": 7,
+    "source_chunk_index": 21
+  },
+  {
+    "question": "根据片段，整个路线最终希望形成的能力链按顺序包含哪些技术？",
+    "ground_truth": "Python → FastAPI → PostgreSQL → Redis → LLM → LangChain → RAG → RAG Evaluation → LangGraph → Agent → Memory → HITL → MCP → AI 系统工程化 → WorkMate",
+    "expected_source": "5fa75364a146416da7c85364c50dbe63.pdf",
+    "expected_filename": "MCP.pdf",
+    "source_document_id": 7,
+    "source_chunk_index": 23
+  },
+  {
+    "question": "阶段6正式教学的第6个板块是什么？",
+    "ground_truth": "企业级 Company MCP Server",
+    "expected_source": "5fa75364a146416da7c85364c50dbe63.pdf",
+    "expected_filename": "MCP.pdf",
+    "source_document_id": 7,
+    "source_chunk_index": 24
+  },
+  {
+    "question": "LangChain 学习被重新划分成几个板块？",
+    "ground_truth": "9 个板块",
+    "expected_source": "e39d3296fbe94223bb062bce789d8a38.pdf",
+    "expected_filename": "学习LangChain.pdf",
+    "source_document_id": 9,
+    "source_chunk_index": 2
+  },
+  {
+    "question": "板块二建议 app/llm/ 目录下保留哪三个文件？",
+    "ground_truth": "client.py, prompts.py, tools.py",
+    "expected_source": "e39d3296fbe94223bb062bce789d8a38.pdf",
+    "expected_filename": "学习LangChain.pdf",
+    "source_document_id": 9,
+    "source_chunk_index": 5
+  },
+  {
+    "question": "在LangChain中，原有的字符串拼接Prompt将升级为什么形式？",
+    "ground_truth": "将升级为ChatPromptTemplate（使用SystemMessage、HumanMessage、AIMessage、MessagesPlaceholder等构建）。",
+    "expected_source": "e39d3296fbe94223bb062bce789d8a38.pdf",
+    "expected_filename": "学习LangChain.pdf",
+    "source_document_id": 9,
+    "source_chunk_index": 6
+  },
+  {
+    "question": "在TaskFlow实战中，最终的模型输入（Prompt）由哪些部分构成？",
+    "ground_truth": "由TaskFlow System Prompt、conversation history和当前用户输入构成。",
+    "expected_source": "e39d3296fbe94223bb062bce789d8a38.pdf",
+    "expected_filename": "学习LangChain.pdf",
+    "source_document_id": 9,
+    "source_chunk_index": 7
+  },
+  {
+    "question": "根据片段，未来实际输入可能包含哪些字段？",
+    "ground_truth": "可能包含question、user_id、conversation_id、task_context、history等。",
+    "expected_source": "e39d3296fbe94223bb062bce789d8a38.pdf",
+    "expected_filename": "学习LangChain.pdf",
+    "source_document_id": 9,
+    "source_chunk_index": 9
+  },
+  {
+    "question": "在项目结构变化中，新增的chains.py文件负责什么？",
+    "ground_truth": "负责组合Prompt、Model和Parser（即Prompt + Model + Parser的组合）。",
+    "expected_source": "e39d3296fbe94223bb062bce789d8a38.pdf",
+    "expected_filename": "学习LangChain.pdf",
+    "source_document_id": 9,
+    "source_chunk_index": 10
+  },
+  {
+    "question": "在结构化输出部分，提到了哪几种实现思路？",
+    "ground_truth": "普通Prompt输出JSON、Output Parser（StrOutputParser/PydanticOutputParser）、Model Structured Output（with_structured_output()）。",
+    "expected_source": "e39d3296fbe94223bb062bce789d8a38.pdf",
+    "expected_filename": "学习LangChain.pdf",
+    "source_document_id": 9,
+    "source_chunk_index": 11
+  },
+  {
+    "question": "在第三阶段教学计划中，LangChain 的 astream() 方法最终通过 FastAPI 的什么组件输出？",
+    "ground_truth": "StreamingResponse",
+    "expected_source": "e39d3296fbe94223bb062bce789d8a38.pdf",
+    "expected_filename": "学习LangChain.pdf",
+    "source_document_id": 9,
+    "source_chunk_index": 13
+  },
+  {
+    "question": "板块六的学习主题是什么？",
+    "ground_truth": "LangChain Tools + TaskFlow 业务工具化",
+    "expected_source": "e39d3296fbe94223bb062bce789d8a38.pdf",
+    "expected_filename": "学习LangChain.pdf",
+    "source_document_id": 9,
+    "source_chunk_index": 14
+  },
+  {
+    "question": "根据片段，LangChain Tool 的正确调用链路是什么？",
+    "ground_truth": "LangChain Tool -> TaskService -> TaskRepository -> Database",
+    "expected_source": "e39d3296fbe94223bb062bce789d8a38.pdf",
+    "expected_filename": "学习LangChain.pdf",
+    "source_document_id": 9,
+    "source_chunk_index": 15
+  },
+  {
+    "question": "板块七的主题是什么？",
+    "ground_truth": "Agent——真正让 TaskFlow“自主选择工具”",
+    "expected_source": "e39d3296fbe94223bb062bce789d8a38.pdf",
+    "expected_filename": "学习LangChain.pdf",
+    "source_document_id": 9,
+    "source_chunk_index": 17
+  },
+  {
+    "question": "当用户询问“我今天还有哪些未完成任务？”时，Agent 的调用流程是什么？",
+    "ground_truth": "LLM -> get_tasks -> TaskService -> TaskRepository -> LLM -> 回答",
+    "expected_source": "e39d3296fbe94223bb062bce789d8a38.pdf",
+    "expected_filename": "学习LangChain.pdf",
+    "source_document_id": 9,
+    "source_chunk_index": 18
+  },
+  {
+    "question": "作者对当前项目结构的建议是什么？",
+    "ground_truth": "先保持扁平结构，不要全部变成目录，因为项目目前还没有复杂到需要这种层级。",
+    "expected_source": "e39d3296fbe94223bb062bce789d8a38.pdf",
+    "expected_filename": "学习LangChain.pdf",
+    "source_document_id": 9,
+    "source_chunk_index": 19
+  },
+  {
+    "question": "根据片段，Memory 的含义是什么？",
+    "ground_truth": "历史状态如何保存 + 下一次调用时如何恢复 + 如何放回模型上下文",
+    "expected_source": "e39d3296fbe94223bb062bce789d8a38.pdf",
+    "expected_filename": "学习LangChain.pdf",
+    "source_document_id": 9,
+    "source_chunk_index": 21
+  },
+  {
+    "question": "作者为什么专门增加板块九？",
+    "ground_truth": "因为看到已有 models/llm_usage.py 和 repositories/llm_usage_repository.py，说明第二阶段已经开始记录 Token Usage，所以 LangChain 阶段不能丢掉它。",
+    "expected_source": "e39d3296fbe94223bb062bce789d8a38.pdf",
+    "expected_filename": "学习LangChain.pdf",
+    "source_document_id": 9,
+    "source_chunk_index": 22
+  },
+  {
+    "question": "根据片段，最终考虑记录哪些字段？",
+    "ground_truth": "user_id, conversation_id, model, prompt_tokens, completion_tokens, total_tokens, latency, success / failed",
+    "expected_source": "e39d3296fbe94223bb062bce789d8a38.pdf",
+    "expected_filename": "学习LangChain.pdf",
+    "source_document_id": 9,
+    "source_chunk_index": 23
+  },
+  {
+    "question": "作者建议现在先不要展开哪些内容？",
+    "ground_truth": "StateGraph、Node、Edge、Checkpoint、Interrupt、Human-in-the-Loop，这些是后面的 LangGraph 阶段。",
+    "expected_source": "e39d3296fbe94223bb062bce789d8a38.pdf",
+    "expected_filename": "学习LangChain.pdf",
+    "source_document_id": 9,
+    "source_chunk_index": 25
+  },
+  {
+    "question": "在“每个板块具体会动哪些文件”总览中，板块6 Tools 对应的主要文件和动作分别是什么？",
+    "ground_truth": "主要文件为 llm/tools.py 和 Task Service，动作为修改。",
+    "expected_source": "e39d3296fbe94223bb062bce789d8a38.pdf",
+    "expected_filename": "学习LangChain.pdf",
+    "source_document_id": 9,
+    "source_chunk_index": 26
+  },
+  {
+    "question": "在建议保留的现有 llm 目录结构中，chains.py 和 agent.py 分别是在哪个板块新增的？",
+    "ground_truth": "chains.py 在板块 3 新增，agent.py 在板块 7 新增。",
+    "expected_source": "e39d3296fbe94223bb062bce789d8a38.pdf",
+    "expected_filename": "学习LangChain.pdf",
+    "source_document_id": 9,
+    "source_chunk_index": 27
+  },
+  {
+    "question": "文中指出 Agent 的组成是什么？",
+    "ground_truth": "Agent = LLM + Tools + 运行循环 + 上下文。",
+    "expected_source": "e39d3296fbe94223bb062bce789d8a38.pdf",
+    "expected_filename": "学习LangChain.pdf",
+    "source_document_id": 9,
+    "source_chunk_index": 29
+  },
+  {
+    "question": "根据片段，哪些内容不属于 LangChain？",
+    "ground_truth": "JWT、用户权限、数据库 CRUD、Repository、业务校验、Redis 缓存策略、HTTP API。",
+    "expected_source": "e39d3296fbe94223bb062bce789d8a38.pdf",
+    "expected_filename": "学习LangChain.pdf",
+    "source_document_id": 9,
+    "source_chunk_index": 30
+  },
+  {
+    "question": "这一阶段最终验收的 TaskFlow LangChain Assistant 至少需要完成哪四类能力？",
+    "ground_truth": "普通聊天、流式聊天、结构化理解、Agent 操作真实 Task。",
+    "expected_source": "e39d3296fbe94223bb062bce789d8a38.pdf",
+    "expected_filename": "学习LangChain.pdf",
+    "source_document_id": 9,
+    "source_chunk_index": 31
+  },
+  {
+    "question": "根据文档，该阶段建议把2周拆成几个学习板块？",
+    "ground_truth": "7个学习板块",
+    "expected_source": "2773813ad36a4f1588c23b6ab64748fc.pdf",
+    "expected_filename": "LangGraph教学计划.pdf",
+    "source_document_id": 10,
+    "source_chunk_index": 0
+  },
+  {
+    "question": "根据文档，第2个学习板块“State 状态管理”的实战内容是什么？",
+    "ground_truth": "做多节点数据流",
+    "expected_source": "2773813ad36a4f1588c23b6ab64748fc.pdf",
+    "expected_filename": "LangGraph教学计划.pdf",
+    "source_document_id": 10,
+    "source_chunk_index": 2
+  },
+  {
+    "question": "根据文档，LangGraph 最核心的思想是什么？",
+    "ground_truth": "把 LLM 应用建模成一个有状态的图执行系统",
+    "expected_source": "2773813ad36a4f1588c23b6ab64748fc.pdf",
+    "expected_filename": "LangGraph教学计划.pdf",
+    "source_document_id": 10,
+    "source_chunk_index": 4
+  },
+  {
+    "question": "根据文档，State 在整个 Graph 中的角色是什么？",
+    "ground_truth": "State 是整个 Graph 的共享上下文",
+    "expected_source": "2773813ad36a4f1588c23b6ab64748fc.pdf",
+    "expected_filename": "LangGraph教学计划.pdf",
+    "source_document_id": 10,
+    "source_chunk_index": 5
+  },
+  {
+    "question": "在 LangGraph 教学计划板块 2 中，建议做的实验 A 是什么？",
+    "ground_truth": "让 retrieve_node 不返回 documents，观察会发生什么。",
+    "expected_source": "2773813ad36a4f1588c23b6ab64748fc.pdf",
+    "expected_filename": "LangGraph教学计划.pdf",
+    "source_document_id": 10,
+    "source_chunk_index": 7
+  },
+  {
+    "question": "在 LangGraph 中，State 和 Memory 的概念关系是什么？",
+    "ground_truth": "State 是一次 Graph 执行过程中的状态；Checkpoint / Persistence 把状态保存下来；Memory 利用持久化状态形成跨轮次记忆能力。",
+    "expected_source": "2773813ad36a4f1588c23b6ab64748fc.pdf",
+    "expected_filename": "LangGraph教学计划.pdf",
+    "source_document_id": 10,
+    "source_chunk_index": 8
+  },
+  {
+    "question": "板块 3 建议第一个 DocMind Agent 做什么？",
+    "ground_truth": "做一个 DocMind Router Agent，而不是直接做“万能 Agent”。",
+    "expected_source": "2773813ad36a4f1588c23b6ab64748fc.pdf",
+    "expected_filename": "LangGraph教学计划.pdf",
+    "source_document_id": 10,
+    "source_chunk_index": 9
+  },
+  {
+    "question": "在 LangGraph 中，Node 里面应该直接创建 Embedding、VectorStore、Database、LLM 等组件吗？",
+    "ground_truth": "不应该，应该保持 Node 简洁，调用 Service / Repository / RAG Module 实现真正业务逻辑。",
+    "expected_source": "2773813ad36a4f1588c23b6ab64748fc.pdf",
+    "expected_filename": "LangGraph教学计划.pdf",
+    "source_document_id": 10,
+    "source_chunk_index": 11
+  },
+  {
+    "question": "在板块 4 中，建议给 DocMind 增加哪三个 Tool？",
+    "ground_truth": "search_documents()、query_employee()、create_task()。",
+    "expected_source": "2773813ad36a4f1588c23b6ab64748fc.pdf",
+    "expected_filename": "LangGraph教学计划.pdf",
+    "source_document_id": 10,
+    "source_chunk_index": 12
+  },
+  {
+    "question": "根据该片段，RAG和Agent分别被定义为什么？",
+    "ground_truth": "RAG是一种能力，Agent是一种决策/执行机制。",
+    "expected_source": "2773813ad36a4f1588c23b6ab64748fc.pdf",
+    "expected_filename": "LangGraph教学计划.pdf",
+    "source_document_id": 10,
+    "source_chunk_index": 14
+  },
+  {
+    "question": "在该片段的年假申请示例中，Agent发送邮件前必须获得什么？",
+    "ground_truth": "用户确认。",
+    "expected_source": "2773813ad36a4f1588c23b6ab64748fc.pdf",
+    "expected_filename": "LangGraph教学计划.pdf",
+    "source_document_id": 10,
+    "source_chunk_index": 15
+  },
+  {
+    "question": "该片段提到的“重点易错知识④”是什么？",
+    "ground_truth": "Conversation History ≠ Checkpoint。",
+    "expected_source": "2773813ad36a4f1588c23b6ab64748fc.pdf",
+    "expected_filename": "LangGraph教学计划.pdf",
+    "source_document_id": 10,
+    "source_chunk_index": 16
+  },
+  {
+    "question": "根据该片段，没有持久化能力的“暂停”会导致什么？",
+    "ground_truth": "没有真正意义上的长流程恢复。",
+    "expected_source": "2773813ad36a4f1588c23b6ab64748fc.pdf",
+    "expected_filename": "LangGraph教学计划.pdf",
+    "source_document_id": 10,
+    "source_chunk_index": 18
+  },
+  {
+    "question": "根据该片段，LangGraph应该扮演什么角色？",
+    "ground_truth": "编排层，而不是替换现有的业务层。",
+    "expected_source": "2773813ad36a4f1588c23b6ab64748fc.pdf",
+    "expected_filename": "LangGraph教学计划.pdf",
+    "source_document_id": 10,
+    "source_chunk_index": 19
+  },
+  {
+    "question": "Day 4的学习主题是什么？",
+    "ground_truth": "Tool Calling",
+    "expected_source": "2773813ad36a4f1588c23b6ab64748fc.pdf",
+    "expected_filename": "LangGraph教学计划.pdf",
+    "source_document_id": 10,
+    "source_chunk_index": 21
+  },
+  {
+    "question": "Day 6的重点中故意制造哪些失败情况？",
+    "ground_truth": "Tool 调⽤失败、LLM 输出异常、Agent ⽆限循环、Tool 参数错误、Tool Exception",
+    "expected_source": "2773813ad36a4f1588c23b6ab64748fc.pdf",
+    "expected_filename": "LangGraph教学计划.pdf",
+    "source_document_id": 10,
+    "source_chunk_index": 22
+  },
+  {
+    "question": "Day 8 Checkpoint学习中包含哪些关键概念？",
+    "ground_truth": "Checkpoint, Persistence, Thread, State Recovery, conversation_id",
+    "expected_source": "2773813ad36a4f1588c23b6ab64748fc.pdf",
+    "expected_filename": "LangGraph教学计划.pdf",
+    "source_document_id": 10,
+    "source_chunk_index": 23
+  },
+  {
+    "question": "Day 14完整项目验收中加入哪些组件？",
+    "ground_truth": "Memory, Checkpoint, Interrupt",
+    "expected_source": "2773813ad36a4f1588c23b6ab64748fc.pdf",
+    "expected_filename": "LangGraph教学计划.pdf",
+    "source_document_id": 10,
+    "source_chunk_index": 25
+  },
+  {
+    "question": "片段中自己设计10个真实问题的第4个问题是什么？",
+    "ground_truth": "帮我查询某个员⼯",
+    "expected_source": "2773813ad36a4f1588c23b6ab64748fc.pdf",
+    "expected_filename": "LangGraph教学计划.pdf",
+    "source_document_id": 10,
+    "source_chunk_index": 26
+  },
+  {
+    "question": "当 Agent 存在无限调用 Tool 的风险时，必须考虑哪些因素？",
+    "ground_truth": "最大循环次数、停止条件、异常处理。",
+    "expected_source": "2773813ad36a4f1588c23b6ab64748fc.pdf",
+    "expected_filename": "LangGraph教学计划.pdf",
+    "source_document_id": 10,
+    "source_chunk_index": 28
+  },
+  {
+    "question": "在 LangGraph 中，Interrupt 的关键是什么？",
+    "ground_truth": "暂停、保存、未来恢复。",
+    "expected_source": "2773813ad36a4f1588c23b6ab64748fc.pdf",
+    "expected_filename": "LangGraph教学计划.pdf",
+    "source_document_id": 10,
+    "source_chunk_index": 29
+  },
+  {
+    "question": "根据片段，每做一个 Agent 前应该先做什么？",
+    "ground_truth": "先画 Graph 然后再写代码。",
+    "expected_source": "2773813ad36a4f1588c23b6ab64748fc.pdf",
+    "expected_filename": "LangGraph教学计划.pdf",
+    "source_document_id": 10,
+    "source_chunk_index": 30
+  },
+  {
+    "question": "这一阶段（这两周）不要追求什么？",
+    "ground_truth": "不要追求“学完 API”。",
+    "expected_source": "2773813ad36a4f1588c23b6ab64748fc.pdf",
+    "expected_filename": "LangGraph教学计划.pdf",
+    "source_document_id": 10,
+    "source_chunk_index": 32
+  },
+  {
+    "question": "在最终项目验收标准中，State 能力必须达到什么要求？",
+    "ground_truth": "能自己设计。",
+    "expected_source": "2773813ad36a4f1588c23b6ab64748fc.pdf",
+    "expected_filename": "LangGraph教学计划.pdf",
+    "source_document_id": 10,
+    "source_chunk_index": 33
+  },
+  {
+    "question": "片段1中，trace-swe 项目背景与动机部分提出的两个问题分别是什么？",
+    "ground_truth": "1. 为什么做 trace-swe？请用一个仓库级修复任务说明它解决了什么问题。2. 为什么采用单 Agent 加 Bash 工具循环？这个设计适合哪类任务？",
+    "expected_source": "af5186249c37453c8da90afb0bf80bfc.pdf",
+    "expected_filename": "trace-swe题目.pdf",
+    "source_document_id": 11,
+    "source_chunk_index": 0
+  },
+  {
+    "question": "根据片段2，常见踩坑中提到的对非零退出状态的错误理解是什么？",
+    "ground_truth": "把非零退出状态理解为工作区没有发生变化。",
+    "expected_source": "af5186249c37453c8da90afb0bf80bfc.pdf",
+    "expected_filename": "trace-swe题目.pdf",
+    "source_document_id": 11,
+    "source_chunk_index": 1
+  },
+  {
+    "question": "根据片段3，常见踩坑指出在评估输入Token节省时容易忽略什么？",
+    "ground_truth": "只计算被移出上下文的文本，忽略后续读回的内容。",
+    "expected_source": "af5186249c37453c8da90afb0bf80bfc.pdf",
+    "expected_filename": "trace-swe题目.pdf",
+    "source_document_id": 11,
+    "source_chunk_index": 3
+  },
+  {
+    "question": "根据片段4，常见踩坑提醒不要用什么来解释三种行为？",
+    "ground_truth": "用同一个重试次数解释三种行为。",
+    "expected_source": "af5186249c37453c8da90afb0bf80bfc.pdf",
+    "expected_filename": "trace-swe题目.pdf",
+    "source_document_id": 11,
+    "source_chunk_index": 5
+  },
+  {
+    "question": "根据片段5，常见踩坑指出只报通过数量和覆盖率时，容易讲不出什么？",
+    "ground_truth": "核心断言。",
+    "expected_source": "af5186249c37453c8da90afb0bf80bfc.pdf",
+    "expected_filename": "trace-swe题目.pdf",
+    "source_document_id": 11,
+    "source_chunk_index": 7
+  },
+  {
+    "question": "在trace-swe中，文档片段提到了哪两个常见踩坑？",
+    "ground_truth": "把输入更短当作唯一优化目标；认为扩大Git指纹的文件覆盖范围就能识别外部副作用。",
+    "expected_source": "af5186249c37453c8da90afb0bf80bfc.pdf",
+    "expected_filename": "trace-swe题目.pdf",
+    "source_document_id": 11,
+    "source_chunk_index": 9
+  },
+  {
+    "question": "在trace-swe的log_errors任务中，输入、工作区初始状态和交付物分别是什么？",
+    "ground_truth": "输入是 issue 文本、运行配置和一个仓库；初始状态是干净 git 仓库、测试失败；交付是改动后的工作区、完整对话轨迹、过程日志和验证结果。",
+    "expected_source": "af5186249c37453c8da90afb0bf80bfc.pdf",
+    "expected_filename": "trace-swe题目.pdf",
+    "source_document_id": 11,
+    "source_chunk_index": 10
+  },
+  {
+    "question": "在trace-swe中，沿着代码检索、修改、测试，哪些决策由模型做，哪些由程序控制？",
+    "ground_truth": "检索时模型决定用搜索还是读文件；修改时模型决定用什么方式改；测试时模型决定跑哪个测试、怎么理解失败。程序控制的是执行环境、参数校验、超时、输出捕获、提交识别和预算上限。",
+    "expected_source": "af5186249c37453c8da90afb0bf80bfc.pdf",
+    "expected_filename": "trace-swe题目.pdf",
+    "source_document_id": 11,
+    "source_chunk_index": 12
+  },
+  {
+    "question": "在trace-swe中，命令、退出状态、标准输出和标准错误分别在哪里处理？哪些内容会返回给模型？",
+    "ground_truth": "命令来自模型的工具参数；退出状态是子进程的返回码；标准输出和标准错误在环境层合并成一份，不分开返回。模型看到的是返回码、合并后的输出，以及超时或启动失败时的异常说明，看不到原始进程对象。输出太长会截断，或者落到磁盘后给一个路径。",
+    "expected_source": "af5186249c37453c8da90afb0bf80bfc.pdf",
+    "expected_filename": "trace-swe题目.pdf",
+    "source_document_id": 11,
+    "source_chunk_index": 14
+  },
+  {
+    "question": "在trace-swe中，轨迹快照与执行事件各保留什么信息？定位同一次失败时，两者怎么关联？",
+    "ground_truth": "轨迹保留完整对话和语义状态，包括系统提示、用户任务、模型回复、工具调用、命令输出、成本、任务状态、验证和交付信息。日志保留过程事实，包括时间、重试、返回码、输出哈希和工作区指纹。关联靠运行编号、步号、事件顺序，以及模型调用时记下的消息摘要；摘要能对上轨迹里的那条消息，快照里的轨迹路径和消息数能确定日志对应哪一版轨迹。",
+    "expected_source": "af5186249c37453c8da90afb0bf80bfc.pdf",
+    "expected_filename": "trace-swe题目.pdf",
+    "source_document_id": 11,
+    "source_chunk_index": 16
+  },
+  {
+    "question": "用户显式选择继续后，系统从哪个位置恢复？如何避免重复执行已经产生副作用的命令？",
+    "ground_truth": "从最后一个完整快照（最后一个完成的步骤）开始恢复；系统不会自动重放进行中的命令，也不做去重，只是带着旧对话重新进入循环让模型再决策。避免重复只能靠人：先看拒绝信息里列出的已执行命令，检查工作区，尽量用幂等操作，必要时手工回滚，语义是至少一次。",
+    "expected_source": "af5186249c37453c8da90afb0bf80bfc.pdf",
+    "expected_filename": "trace-swe题目.pdf",
+    "source_document_id": 11,
+    "source_chunk_index": 18
+  },
+  {
+    "question": "指纹如何生成？它覆盖已暂存、未暂存和未跟踪文件中的哪些变化？",
+    "ground_truth": "用临时索引，以当前提交为基线，把所有改动和未跟踪文件都加进去，再算整棵树的内容哈希。已暂存、未暂存、新增和删除都会反映出来，不只是看 git status 的文字。",
+    "expected_source": "af5186249c37453c8da90afb0bf80bfc.pdf",
+    "expected_filename": "trace-swe题目.pdf",
+    "source_document_id": 11,
+    "source_chunk_index": 19
+  },
+  {
+    "question": "如果模型为找一条早期报错，多次读取同一个大文件，这种设计还可能节省输入 Token 吗？",
+    "ground_truth": "不一定。反复读同一个大文件，读回来的文本可能比省掉的还多，净节省为零甚至负数。这个设计优化的是上下文窗口，不是总 token；要判断效果，得看每次调用的 prompt token、总 prompt token 和读回量。",
+    "expected_source": "af5186249c37453c8da90afb0bf80bfc.pdf",
+    "expected_filename": "trace-swe题目.pdf",
+    "source_document_id": 11,
+    "source_chunk_index": 21
+  },
+  {
+    "question": "如果一个关键变量缺失，当前实现会怎样表现？如何验证？",
+    "ground_truth": "如果模板实际引用了这个变量，严格模式会直接抛错；没有捕获的话，agent 会记录一条退出消息、保存轨迹，然后把异常抛出来，所以是显式失败，不是静默空串。如果变量只在没走到的条件分支里，可能不会触发。验证方法是用一个最小配置渲染缺变量的模板，确认它抛错，而不是生成空字符串。",
+    "expected_source": "af5186249c37453c8da90afb0bf80bfc.pdf",
+    "expected_filename": "trace-swe题目.pdf",
+    "source_document_id": 11,
+    "source_chunk_index": 23
+  },
+  {
+    "question": "假设执行环境中断，本地日志、验收记录和 Git 补丁分别能保留到什么程度？",
+    "ground_truth": "宿主机上的轨迹和日志能保留，日志是逐行写的，至少有有效前缀；验收记录如果已经生成也能留下；补丁要看有没有在容器里生成并提交：提交内容会写进结果文件，容器挂了但没提交就丢了；项目里自动导出补丁只支持本地环境，Docker 下会记录“补丁导出不可用”；官方评测脚本在中断时还没跑，所以最终判定也拿不到。",
+    "expected_source": "af5186249c37453c8da90afb0bf80bfc.pdf",
+    "expected_filename": "trace-swe题目.pdf",
+    "source_document_id": 11,
+    "source_chunk_index": 25
+  },
+  {
+    "question": "修复循环怎样停止？达到最大尝试次数但未通过会怎样？",
+    "ground_truth": "修复循环在验证通过、达到最大尝试次数、或者失败反馈被关闭时停止；达到最大尝试次数但还没通过，就记为验证失败。",
+    "expected_source": "af5186249c37453c8da90afb0bf80bfc.pdf",
+    "expected_filename": "trace-swe题目.pdf",
+    "source_document_id": 11,
+    "source_chunk_index": 27
+  },
+  {
+    "question": "补丁相对哪个基线生成？验收记录包含哪些信息？",
+    "ground_truth": "补丁相对验收当时的 HEAD 生成，包含未跟踪文件；验收记录记命令、尝试次数、结果和时间。两者靠同一次运行、补丁哈希和工作区指纹对应，但验收记录本身没有直接存补丁哈希，因此是弱绑定。",
+    "expected_source": "af5186249c37453c8da90afb0bf80bfc.pdf",
+    "expected_filename": "trace-swe题目.pdf",
+    "source_document_id": 11,
+    "source_chunk_index": 28
+  },
+  {
+    "question": "实验中的 10/10 具体指什么？成功标准是什么？",
+    "ground_truth": "10/10 不是 10 个任务，而是 2 个任务各跑 5 次，共 10 次运行全部通过；成功标准是 pytest 返回零，且受保护文件（测试文件和日志文件）没被改。",
+    "expected_source": "af5186249c37453c8da90afb0bf80bfc.pdf",
+    "expected_filename": "trace-swe题目.pdf",
+    "source_document_id": 11,
+    "source_chunk_index": 30
+  },
+  {
+    "question": "实验组相对基线的单次平均输入 token 降幅如何计算？总输入 token 降了多少？",
+    "ground_truth": "基线单次平均输入 token 为 3350，实验组为 2875，差 475，降幅为 (3350-2875)/3350 = 14.2%；总输入 token 从 20 万降到 12.6 万，降了 37%。",
+    "expected_source": "af5186249c37453c8da90afb0bf80bfc.pdf",
+    "expected_filename": "trace-swe题目.pdf",
+    "source_document_id": 11,
+    "source_chunk_index": 32
+  },
+  {
+    "question": "测试按哪些组分类？行覆盖率是多少？行覆盖率能代表行为覆盖吗？",
+    "ground_truth": "测试按 agent、执行环境、模型、基础设施、配置、命令行、评测和 benchmark 分组；行覆盖率对整个源码包统计约 90%；行覆盖率不等于行为覆盖，因为 Docker 相关测试被跳过、续跑测试的强制继续路径缺少断言。",
+    "expected_source": "af5186249c37453c8da90afb0bf80bfc.pdf",
+    "expected_filename": "trace-swe题目.pdf",
+    "source_document_id": 11,
+    "source_chunk_index": 34
+  },
+  {
+    "question": "文中诊断“命令执行了但没进轨迹”需要依据哪三条证据？",
+    "ground_truth": "找最后一个快照的位置，再看快照之后有多少条动作事件、最后一条是什么；看轨迹最后一条消息和最后一条快照是否对得上；拿当前工作区指纹和快照里的指纹比对。",
+    "expected_source": "af5186249c37453c8da90afb0bf80bfc.pdf",
+    "expected_filename": "trace-swe题目.pdf",
+    "source_document_id": 11,
+    "source_chunk_index": 36
+  },
+  {
+    "question": "片段中认为哪类校验反馈最难让模型做出有效修复？",
+    "ground_truth": "环境型失败和被截断的失败。模型分不清是代码错还是环境错，也看不到真正的失败点。",
+    "expected_source": "af5186249c37453c8da90afb0bf80bfc.pdf",
+    "expected_filename": "trace-swe题目.pdf",
+    "source_document_id": 11,
+    "source_chunk_index": 37
+  },
+  {
+    "question": "基于片段，哪类观察最容易被过早移出，或者被反复读取？",
+    "ground_truth": "早期的大日志、第一次测试失败的完整输出、以及长文件读取。",
+    "expected_source": "af5186249c37453c8da90afb0bf80bfc.pdf",
+    "expected_filename": "trace-swe题目.pdf",
+    "source_document_id": 11,
+    "source_chunk_index": 39
+  },
+  {
+    "question": "片段中迁移到会修改仓库外部资源的 Shell 任务时，恢复判定需要增加哪些步骤？",
+    "ground_truth": "把命令分成只读和写操作，写操作不能自动重试；给写操作加幂等键或请求编号并记进事件日志；恢复前跑一个外部探针，用这个键查询外部系统是否已经执行或检查资源的实际状态。若外部系统不提供查询或幂等能力，则不能自动续跑，只能在第一处写操作前停下来要求人工确认。",
+    "expected_source": "af5186249c37453c8da90afb0bf80bfc.pdf",
+    "expected_filename": "trace-swe题目.pdf",
+    "source_document_id": 11,
+    "source_chunk_index": 41
+  },
+  {
+    "question": "片段中用于演示的初始仓库状态和验收命令是什么？",
+    "ground_truth": "初始仓库要有带 bug 的实现、测试文件、日志文件，并且已经 git 提交；验收命令是跑 pytest，判定条件是返回码为零且测试文件和日志文件没被改。",
+    "expected_source": "af5186249c37453c8da90afb0bf80bfc.pdf",
+    "expected_filename": "trace-swe题目.pdf",
+    "source_document_id": 11,
+    "source_chunk_index": 43
+  }
+]
