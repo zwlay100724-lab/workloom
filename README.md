@@ -1,6 +1,6 @@
 # WorkLoom
 
-WorkLoom 是一个双服务 AI 工作台：把任务管理和企业知识检索放在同一个平台里。
+WorkLoom 是一个双服务 AI 工作台：把学习任务管理和教材课程等知识检索放在同一个平台里。
 
 - **TaskFlow**：任务管理 + LLM 助手（JWT、Redis 缓存、结构化输出、Tool Calling）
 - **DocMind**：企业知识库 RAG（pgvector、混合检索、LangGraph ReAct Agent）
@@ -204,32 +204,56 @@ make test
 
 ## 评测
 
+正式评测使用从已索引文档生成的 118 道问题，Ragas 评委模型为
+`deepseek-flash`。当前正式报告提交在
+[`docmind/eval/report.json`](docmind/eval/report.json)。
+
 ```bash
-make eval
-# 或者分步执行：
 cd docmind
-../.venv/bin/python eval/index_sample.py
-../.venv/bin/python eval/evaluate.py --limit 2
+
+# 1) 从已索引文档生成题集（仓库已提交 questions_100plus.json，可跳过）
+../.venv/bin/python eval/generate_questions.py --user-id <uid>
+
+# 2) 跑 RAG，先落盘 answer / contexts（真实调用 LLM、Embedding、rerank）
+../.venv/bin/python eval/evaluate.py \
+  --user-id <uid> \
+  --questions eval/questions_100plus.json \
+  --top-k 5 \
+  --rows-out eval/rag_rows_v2.json \
+  --report /tmp/report_rag_only.json \
+  --skip-ragas
+
+# 3) 复用 RAG rows，只跑 Ragas 评分
+../.venv/bin/python eval/evaluate.py \
+  --rows eval/rag_rows_v2.json \
+  --report eval/report.json \
+  --judge-model deepseek-flash \
+  --batch-size 5
 ```
 
-- `eval/index_sample.py` 会把 `eval/sample_corpus.txt` 复制到 `docmind/data/` 并建立索引；
-- `eval/evaluate.py` 调用真实 RAG 链路，再用 Ragas 计算 faithfulness / answer relevancy / context precision / context recall；
-- 会真实调用 LLM 和 Embedding，产生少量费用；`--skip-ragas` 可只跑检索与延迟；
-- 结果写入 `eval/report.json`（已加入 `.gitignore`）。
+- `eval/evaluate.py` 调用真实 RAG 链路，再用 Ragas 计算 faithfulness /
+  answer relevancy / context precision / context recall；
+- 评分按指标分批，每批写入 `eval/ragas_checkpoint_*.jsonl`，中断后重跑同一条
+  命令即可断点续跑；
+- `eval/rag_rows*.json` 和 checkpoint 是本地产物，已加入 `.gitignore`；
+- `--skip-ragas` 只收集 RAG 结果，不调用评委模型；
+- `make eval` 仍保留为 `sample_corpus.txt` 的最小冒烟，不等同于下面的正式结果。
 
-示例语料（4 题）上的结果，仅用于验证评测链路，不代表真实业务语料效果：
+正式结果（118 题，2026-11-19，`deepseek-flash` 评委）：
 
 | Questions | Retrieval Hit | Faithfulness | Answer Relevancy | Context Precision | Context Recall | Avg Latency |
 |---:|---:|---:|---:|---:|---:|---:|
-| 4 | 1.0 | 0.95 | 0.9228 | 1.0 | 1.0 | 3526 ms |
+| 118 | 0.9211 | 0.9182 | 0.8943 | 0.8892 | 0.9587 | 10761 ms |
 
-换成真实文档时，修改 `eval/questions.json` 里的 question / ground_truth / expected_source 即可。
+> 4 条 `GraphRecursionError`、12 条 final contexts 为空；上下文类指标实际基于
+> **106** 条有效样本，answer_relevancy 基于 **114** 条。详细设置、30 题新旧链路
+> 对比和局限见 [docs/benchmarks.md](docs/benchmarks.md)。
 
-## 基准
+## 检索基准（历史工具）
 
 ```bash
 make benchmark
-# 或手动跑 Ragas 子集：
+# 或手动跑旧链路检索矩阵：
 cd docmind
 ../.venv/bin/python eval/benchmark.py \
   --sizes 500 --modes vector,hybrid,rewrite \
@@ -240,7 +264,9 @@ cd docmind
 加 `--with-ragas` 才会调用评委模型。实验使用独立评测库 `docmind_eval`，
 不会碰开发库。
 
-完整的方法、真实结果和结论见 [docs/benchmarks.md](docs/benchmarks.md)。
+旧链路的 8 题检索矩阵和 4 题 Ragas 子集已不再作为当前结论；当前正式结论以上面
+「评测」章节的 118 题结果为准。历史方法、当前正式评测、新旧 30 题对比和局限见
+[docs/benchmarks.md](docs/benchmarks.md)。
 
 ## 后台索引队列
 
