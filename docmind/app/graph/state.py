@@ -42,7 +42,14 @@ class AgentState(MessagesState):
     """
 
     # 检索到的片段。Agent 多轮调用工具时累加去重。
+    # 这是“调试用全量并集”；最终回答/评测使用 final_documents。
     documents: Annotated[list[Document], merge_documents]
+
+    # 最终裁剪后的证据片段（全局 Top-N + 每文档配额 + 去重）。
+    final_documents: list[Document]
+
+    # 已经检索过的 query，用于阻止 Agent 反复搜同一句。
+    searched_queries: Annotated[list[str], add]
 
     # 请求级检索参数（调用方传入，tools_node 用来约束检索范围）
     top_k: int | None

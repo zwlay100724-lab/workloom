@@ -12,7 +12,9 @@
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 
+from app.core.config import settings
 from app.llm.client import get_chat_model
+from app.rag.context_selection import select_documents
 from app.rag.formatting import build_sources, format_context
 from app.rag.prompts import AGENT_PROMPT
 from app.rag.tools import (
@@ -117,6 +119,20 @@ def tools_node(state: AgentState, config: RunnableConfig) -> dict:
     documents = []
     rewrite_notes: list[str] = []
     used_hybrid = False
+    fresh_count = 0
+
+    # 已经检索过的 query：Agent 反复搜同一句时直接拒绝，避免上下文膨胀。
+    searched_queries = set(state.get("searched_queries") or [])
+    new_searched_queries: list[str] = []
+
+    # 已经进入 state 的片段；工具消息只展示本次新增的，避免重复。
+    existing_keys = {
+        (
+            document.metadata.get("document_id"),
+            document.metadata.get("chunk_index"),
+        )
+        for document in (state.get("documents") or [])
+    }
 
     for call in messages[-1].tool_calls:
         call_id = call["id"]
@@ -147,7 +163,26 @@ def tools_node(state: AgentState, config: RunnableConfig) -> dict:
                 rewrite_notes.append(f"{query!r}→{rewritten!r}")
                 query = rewritten
 
-        top_k = forced_top_k or args.get("top_k") or 5
+        normalized_query = " ".join(query.casefold().split())
+        if normalized_query in searched_queries:
+            tool_messages.append(ToolMessage(
+                content=(
+                    "该查询已经检索过，请基于已有结果作答，"
+                    "或者换一个不同的查询。"
+                ),
+                tool_call_id=call_id,
+            ))
+            continue
+        searched_queries.add(normalized_query)
+        new_searched_queries.append(normalized_query)
+
+        raw_top_k = forced_top_k or args.get("top_k") or settings.TOP_K
+        try:
+            top_k = int(raw_top_k)
+        except (TypeError, ValueError):
+            top_k = settings.TOP_K
+        # Agent 每轮只拿少量精排后的片段，避免多轮累积过多上下文。
+        top_k = max(1, min(top_k, settings.AGENT_TOOL_TOP_K))
 
         if name == SEARCH_DOCUMENTS_HYBRID:
             used_hybrid = True
@@ -167,17 +202,39 @@ def tools_node(state: AgentState, config: RunnableConfig) -> dict:
                 document_id=forced_document_id,
             )
 
-        documents.extend(docs)
+        fresh_docs = []
+        for document in docs:
+            key = (
+                document.metadata.get("document_id"),
+                document.metadata.get("chunk_index"),
+            )
+            if key in existing_keys:
+                continue
+            existing_keys.add(key)
+            fresh_docs.append(document)
+
+        documents.extend(fresh_docs)
+        fresh_count += len(fresh_docs)
+
+        if not docs:
+            content = "（未检索到相关内容）"
+        elif not fresh_docs:
+            content = (
+                "本次检索没有新增片段，请基于已有结果作答，"
+                "或者换一个查询。"
+            )
+        else:
+            content = format_context(fresh_docs)
 
         # 给模型读的文本。结构化 documents 另走一条通道写回 state。
         tool_messages.append(ToolMessage(
-            content=format_context(docs) if docs else "（未检索到相关内容）",
+            content=content,
             tool_call_id=call_id,
         ))
 
     trace = (
         f"tools_node: 检索 {len(tool_messages)} 次"
-        f"（混合 {used_hybrid}），召回 {len(documents)} 条"
+        f"（混合 {used_hybrid}），新增 {fresh_count} 条"
     )
     if rewrite_notes:
         trace += f"，改写 {'; '.join(rewrite_notes)}"
@@ -185,6 +242,7 @@ def tools_node(state: AgentState, config: RunnableConfig) -> dict:
     return {
         "messages": tool_messages,
         "documents": documents,
+        "searched_queries": new_searched_queries,
         "trace": [trace],
     }
 
@@ -197,12 +255,27 @@ def finalize_node(state: AgentState) -> dict:
     才该产出输出。
     """
     documents = state.get("documents") or []
-    sources = build_sources(documents) if documents else []
+    final_documents = select_documents(
+        documents,
+        max_total=settings.MAX_CONTEXT_DOCUMENTS,
+        max_per_document=settings.MAX_CONTEXTS_PER_DOCUMENT,
+        duplicate_threshold=settings.CONTEXT_DUPLICATE_THRESHOLD,
+    )
+    sources = build_sources(final_documents) if final_documents else []
     answer = (state["messages"][-1].content or "").strip() or NO_ANSWER_TEXT
 
     return {
         "answer": answer,
         "sources": sources,
-        "context": format_context(documents) if documents else "",
-        "trace": [f"finalize_node: 来源 {len(sources)} 条"],
+        "context": (
+            format_context(final_documents)
+            if final_documents
+            else ""
+        ),
+        "final_documents": final_documents,
+        "trace": [
+            f"finalize_node: 最终上下文 "
+            f"{len(final_documents)}/{len(documents)} 条，"
+            f"来源 {len(sources)} 条"
+        ],
     }

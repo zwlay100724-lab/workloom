@@ -128,7 +128,10 @@ class RAGService:
 
         # 评测脚本需要"这次回答实际用了哪些片段"，不能在外部重新检索一遍：
         # 重新检索可能拿到不同结果，Ragas 的 context 指标就失真了。
+        # documents 是多轮检索的调试并集；final_documents 是 finalize
+        # 裁剪后的最终证据，Ragas 应优先使用 final_contexts。
         documents = result.get("documents") or []
+        final_documents = result.get("final_documents") or documents
         usage = usage_handler.summary()
         estimated_cost = estimate_cost(
             usage["input_tokens"],
@@ -179,6 +182,11 @@ class RAGService:
             "answer": result["answer"],
             "sources": result.get("sources") or [],
             "context": result.get("context") or "",
+            # 调试用：Agent 多轮检索的全量并集。
             "contexts": [doc.page_content for doc in documents],
+            # 评测 / 对外展示用：裁剪后的最终证据上下文。
+            "final_contexts": [
+                doc.page_content for doc in final_documents
+            ],
             "usage": usage,
         }

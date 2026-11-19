@@ -57,5 +57,5 @@ graph = build_graph()
 
 # ReAct 环的迭代上限。模型如果陷入"反复检索"会一直绕，
 # 撞到上限时 LangGraph 抛 GraphRecursionError 而不是死循环。
-# agent + tools 一轮算 2 步，所以 12 ≈ 最多 5 轮工具调用。
-RECURSION_LIMIT = 12
+# agent + tools 一轮算 2 步，所以 8 ≈ 最多 4 轮工具调用。
+RECURSION_LIMIT = 8

@@ -7,6 +7,7 @@ from app.llm.client import get_chat_model
 from app.rag.embeddings import embed_query
 from app.rag.keywords import extract_keywords
 from app.rag.query_transformer import QueryTransformer
+from app.rag.reranker import BaseReranker, build_reranker
 from app.repositories.vector_repository import VectorRepository
 
 logger = logging.getLogger(__name__)
@@ -26,11 +27,35 @@ class RetrievalService:
     属于纯转换，且 graph 节点也要用同一份实现。
     """
 
-    def __init__(self, callbacks: list | None = None):
+    def __init__(
+            self,
+            callbacks: list | None = None,
+            reranker: BaseReranker | None = None,
+    ):
         self.llm = get_chat_model()
         self.query_transformer = QueryTransformer(
             self.llm,
             callbacks=callbacks,
+        )
+        self.reranker = reranker or build_reranker()
+
+    def _candidate_k(self, top_k: int) -> int:
+        """rerank 开启时先多召回一些候选。"""
+        if self.reranker.is_active:
+            return max(top_k, settings.RERANK_CANDIDATE_K)
+        return top_k
+
+    def _rerank(
+            self,
+            query: str,
+            documents: list[Document],
+            top_k: int,
+    ) -> list[Document]:
+        return self.reranker.rerank(
+            query,
+            documents,
+            top_k=top_k,
+            score_threshold=settings.RERANK_SCORE_THRESHOLD,
         )
 
     def retrieve(
@@ -60,17 +85,18 @@ class RetrievalService:
         # 1. 问题向量化
         query_vector = embed_query(question)
 
-        # 2. 向量检索（带 user_id 过滤）
+        # 2. 向量检索（带 user_id 过滤）；rerank 开启时多召回候选
         results = VectorRepository(session).search_similar(
             query_embedding=query_vector,
             user_id=user_id,
-            top_k=top_k,
+            top_k=self._candidate_k(top_k),
             document_id=document_id,
         )
 
         # 3. 转回 LangChain Document 对象（保留 metadata，方便后续使用）
         documents = []
         for chunk, distance in results:
+            similarity = 1 - distance
             doc = Document(
                 page_content=chunk.content,
                 metadata={
@@ -80,12 +106,13 @@ class RetrievalService:
                     "chunk_uid": chunk.chunk_uid,
                     "document_id": chunk.document_id,
                     "distance": distance,  # 距离，越小越相似
-                    "similarity": 1 - distance,  # 相似度，越大越相似
+                    "similarity": similarity,
+                    "retrieval_score": similarity,
                 }
             )
             documents.append(doc)
 
-        return documents
+        return self._rerank(question, documents, top_k)
 
     def rewrite_query(self, question: str, history: list[dict] | None) -> str:
         """确定性 Query 改写：结合对话历史把指代（"它""那个"）补全成独立问题。
@@ -167,7 +194,7 @@ class RetrievalService:
             keywords=keywords,
             query_embedding=query_vector,
             user_id=user_id,
-            top_k=top_k,
+            top_k=self._candidate_k(top_k),
             document_id=document_id,
             candidate_k=candidate_k,
         )
@@ -184,11 +211,12 @@ class RetrievalService:
                     "chunk_uid": chunk.chunk_uid,
                     "document_id": chunk.document_id,
                     "rrf_score": rrf_score,  # 越大越靠前
+                    "retrieval_score": rrf_score,
                 }
             )
             documents.append(doc)
 
-        return documents
+        return self._rerank(question, documents, top_k)
 
     def retrieve_with_rewrite(
             self,
@@ -251,8 +279,8 @@ class RetrievalService:
         if len(search_queries) == 1:
             return self.retrieve(session, search_queries[0], user_id, top_k, document_id)
 
-        # 多查询：每路先多取一些，给去重留余量，最后统一取 top_k
-        per_query_k = max(top_k, 20)
+        # 多查询：每路先多取一些，给去重 / rerank 留余量
+        per_query_k = max(self._candidate_k(top_k), 20)
         vector_repo = VectorRepository(session)
         all_pairs = []  # [(chunk, distance), ...]
         for q in search_queries:
@@ -271,9 +299,10 @@ class RetrievalService:
             if chunk.id not in best or distance < best[chunk.id][0]:
                 best[chunk.id] = (distance, chunk)
 
-        # ===== 4. 转 Document，按相似度降序取 top_k =====
+        # ===== 4. 转 Document，按相似度降序，再做 rerank =====
         documents = []
         for distance, chunk in best.values():  # best 存的是 (distance, chunk)
+            similarity = 1 - distance
             documents.append(Document(
                 page_content=chunk.content,
                 metadata={
@@ -283,9 +312,10 @@ class RetrievalService:
                     "chunk_uid": chunk.chunk_uid,
                     "document_id": chunk.document_id,
                     "distance": distance,
-                    "similarity": 1 - distance,
+                    "similarity": similarity,
+                    "retrieval_score": similarity,
                 }
             ))
-        documents.sort(key=lambda d: d.metadata["similarity"], reverse=True)
+        documents.sort(key=lambda d: d.metadata["retrieval_score"], reverse=True)
 
-        return documents[:top_k]
+        return self._rerank(question, documents, top_k)

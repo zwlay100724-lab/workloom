@@ -36,9 +36,38 @@ class Settings(BaseConfig):
     LLM_INPUT_PRICE_PER_MILLION: Decimal | None = None
     LLM_OUTPUT_PRICE_PER_MILLION: Decimal | None = None
 
+    # Ragas 评委模型。留空时复用 LLM_MODEL_ID。
+    # 评测长上下文时，推理模型的 reasoning 会吃满输出上限，
+    # 可以用更快的非推理模型，例如 deepseek-flash。
+    RAGAS_JUDGE_MODEL: str = ""
+
     CHUNK_SIZE: int = 800
     CHUNK_OVERLAP: int = 80
     TOP_K: int = 5
+
+    # ── 最终上下文裁剪 ──────────────────────────────
+    # 多轮检索会累积片段；finalize 时按分数保留全局 top N，
+    # 同一文档最多 N 条，近似重复的片段直接丢弃。
+    MAX_CONTEXT_DOCUMENTS: int = 8
+    MAX_CONTEXTS_PER_DOCUMENT: int = 3
+    CONTEXT_DUPLICATE_THRESHOLD: float = 0.85
+    # Agent 每轮工具调用最多返回几条（rerank 后）。
+    AGENT_TOOL_TOP_K: int = 3
+
+    # ── 精排（可选）─────────────────────────────────
+    # 默认关闭；配置 RERANK_API_KEY（或复用 EMBED_API_KEY）后开启。
+    RERANK_ENABLED: bool = False
+    RERANK_BASE_URL: str = (
+        "https://dashscope.aliyuncs.com/api/v1/services/"
+        "rerank/text-rerank/text-rerank"
+    )
+    RERANK_MODEL: str = "gte-rerank-v2"
+    RERANK_API_KEY: str = ""
+    # 送进 reranker 的候选数量；最终仍只保留 top_k。
+    RERANK_CANDIDATE_K: int = 30
+    # rerank 分数低于该值直接丢弃；0 表示不过滤。
+    RERANK_SCORE_THRESHOLD: float = 0.0
+    RERANK_TIMEOUT_SECONDS: float = 10.0
 
     # ── 后台索引队列 ──────────────────────────────
     # 用 REDIS_URL 指向的 Redis 做队列；API 入队、worker 出队。
